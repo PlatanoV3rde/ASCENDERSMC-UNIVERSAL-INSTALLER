@@ -6,6 +6,7 @@ import com.ascendersmc.installer.model.InstallTarget;
 import com.ascendersmc.installer.model.InstallerProfile;
 import com.ascendersmc.installer.model.LauncherType;
 import com.ascendersmc.installer.service.UniversalInstallService;
+import com.ascendersmc.installer.service.UpdateService;
 import com.ascendersmc.installer.util.InstallerLogger;
 
 import javax.imageio.ImageIO;
@@ -14,6 +15,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
@@ -75,6 +78,8 @@ public final class InstallerFrame extends JFrame {
     private Point dragOrigin;
     private int scanGeneration;
     private volatile boolean scanInProgress;
+    private volatile boolean installationInProgress;
+    private volatile boolean closeDialogOpen;
     private Image logo;
     private Image cobbleImage;
     private Image pixelImage;
@@ -84,7 +89,10 @@ public final class InstallerFrame extends JFrame {
         loadImages();
         setTitle("ASCENDERSMC-UNIVERSAL-INSTALLER");
         setUndecorated(true);
-        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowClosing(WindowEvent e) { requestClose(); }
+        });
         setMinimumSize(new Dimension(1220, 830));
         setSize(1240, 860);
         setLocationRelativeTo(null);
@@ -148,7 +156,7 @@ public final class InstallerFrame extends JFrame {
         statusWrap.add(topStatus);
         statusWrap.add(windowButton("—", () -> setState(Frame.ICONIFIED), new Color(69, 102, 192)));
         statusWrap.add(windowButton("□", () -> setExtendedState((getExtendedState() & Frame.MAXIMIZED_BOTH) != 0 ? Frame.NORMAL : Frame.MAXIMIZED_BOTH), new Color(94, 94, 120)));
-        statusWrap.add(windowButton("×", this::dispose, new Color(163, 74, 95)));
+        statusWrap.add(windowButton("×", this::requestClose, new Color(163, 74, 95)));
         bar.add(statusWrap, BorderLayout.EAST);
 
         MouseAdapter drag = new MouseAdapter() {
@@ -167,6 +175,31 @@ public final class InstallerFrame extends JFrame {
 
         wrap.add(bar, BorderLayout.CENTER);
         return wrap;
+    }
+
+    public boolean isInstallationInProgress() {
+        return installationInProgress;
+    }
+
+    private void requestClose() {
+        if (closeDialogOpen) return;
+        closeDialogOpen = true;
+        try {
+            UpdateService.UpdateState updateState = UpdateService.state();
+            boolean confirmed = ModernDialog.confirmInstallerClose(this, installationInProgress, updateState);
+            if (!confirmed) {
+                InstallerLogger.debug("UI", "Cierre cancelado por el usuario | installInProgress=" + installationInProgress
+                        + " | updateState=" + updateState);
+                return;
+            }
+
+            InstallerLogger.info("UI", "Cierre confirmado por el usuario | installInProgress=" + installationInProgress
+                    + " | updateState=" + updateState);
+            dispose();
+            System.exit(0);
+        } finally {
+            closeDialogOpen = false;
+        }
     }
 
     private JComponent buildLeftColumn() {
@@ -515,6 +548,7 @@ public final class InstallerFrame extends JFrame {
         }
         InstallerLogger.debug("UI", "Inicio solicitado | profile=" + selectedProfile.displayName() + " | launcher=" + selectedTarget.launcherType().label() + " | dir=" + selectedTarget.minecraftDir());
         installButton.setEnabled(false);
+        installationInProgress = true;
         progress.setValue(0);
         progress.setString("Preparando...");
         UiSoundService.click();
@@ -537,6 +571,7 @@ public final class InstallerFrame extends JFrame {
                     ModernDialog.showError(this, "Error de instalación", ex.getMessage());
                 });
             } finally {
+                installationInProgress = false;
                 SwingUtilities.invokeLater(() -> installButton.setEnabled(selectedTarget != null && selectedTarget.installed()));
             }
         }, "ascendersmc-installer-main");

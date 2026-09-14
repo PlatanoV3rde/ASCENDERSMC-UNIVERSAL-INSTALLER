@@ -197,7 +197,7 @@ public final class NeoForgeService {
         InstallerLogger.debug("NEOFORGE", "sha.request | " + url);
         HttpClient c = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(20)).build();
         HttpRequest r = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(45))
-                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.2").GET().build();
+                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.3").GET().build();
         HttpResponse<String> x = c.send(r, HttpResponse.BodyHandlers.ofString());
         InstallerLogger.debug("NEOFORGE", "sha.response | status=" + x.statusCode());
         if (x.statusCode() < 200 || x.statusCode() >= 300) throw new IOException("HTTP " + x.statusCode() + " consultando SHA-256 NeoForge");

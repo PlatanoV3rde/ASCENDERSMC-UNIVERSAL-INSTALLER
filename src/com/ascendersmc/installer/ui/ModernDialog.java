@@ -4,6 +4,7 @@ import com.ascendersmc.installer.model.InstallTarget;
 import com.ascendersmc.installer.model.InstallerProfile;
 import com.ascendersmc.installer.launcher.LauncherRegistration;
 import com.ascendersmc.installer.util.InstallerLogger;
+import com.ascendersmc.installer.service.UpdateService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -78,6 +79,105 @@ public final class ModernDialog extends JDialog {
         body.setBorder(new EmptyBorder(6, 2, 6, 4));
         body.add(area, BorderLayout.CENTER);
         new ModernDialog(owner, title, body, type, new Dimension(790, 380)).setVisible(true);
+    }
+
+    public static boolean confirmInstallerClose(Window owner,
+                                                boolean installationInProgress,
+                                                UpdateService.UpdateState updateState) {
+        final boolean updateBusy = updateState != null && updateState.isBusy();
+        final boolean critical = installationInProgress || (updateState != null && updateState.isCritical());
+        final boolean showStatus = installationInProgress || updateBusy;
+        final boolean[] confirmed = {false};
+
+        JDialog dialog = new JDialog(owner);
+        dialog.setModal(true);
+        dialog.setUndecorated(true);
+        dialog.setSize(showStatus ? 820 : 760, showStatus ? 440 : 390);
+        dialog.setMinimumSize(dialog.getSize());
+        dialog.setLocationRelativeTo(owner);
+        dialog.setBackground(new Color(0, 0, 0, 0));
+
+        JPanel root = new JPanel(new BorderLayout());
+        root.setBorder(BorderFactory.createLineBorder(critical ? new Color(165, 75, 90) : new Color(88, 71, 132), 1));
+        root.setBackground(new Color(20, 18, 31));
+
+        JPanel content = new JPanel(new BorderLayout(22, 0));
+        content.setOpaque(false);
+        content.setBorder(new EmptyBorder(30, 34, 18, 34));
+        content.add(new Badge(critical ? Type.ERROR : Type.INFO, 88), BorderLayout.WEST);
+
+        JPanel body = new JPanel();
+        body.setOpaque(false);
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        JLabel title = new JLabel("¿CERRAR ASCENDERSMC UNIVERSAL INSTALLER?");
+        title.setForeground(Color.WHITE);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 21f));
+        body.add(title);
+        body.add(Box.createVerticalStrut(12));
+
+        JTextArea message = textArea(critical
+                ? "Hay un proceso activo. Cerrar ahora puede interrumpir la instalación, la reparación del perfil o la actualización del propio Installer.\n\nConfirma el cierre únicamente si deseas detener el proceso actual."
+                : "¿Deseas cerrar realmente el Installer? Esta confirmación ayuda a evitar cierres accidentales.", 14.2f);
+        message.setForeground(new Color(205, 198, 224));
+        message.setRows(critical ? 5 : 3);
+        message.setMaximumSize(new Dimension(Integer.MAX_VALUE, critical ? 118 : 78));
+        body.add(message);
+
+        if (showStatus) {
+            body.add(Box.createVerticalStrut(14));
+            JPanel statusCard = new JPanel();
+            statusCard.setLayout(new BoxLayout(statusCard, BoxLayout.Y_AXIS));
+            statusCard.setBackground(new Color(29, 24, 42));
+            statusCard.setBorder(new EmptyBorder(12, 14, 12, 14));
+            statusCard.setAlignmentX(Component.LEFT_ALIGNMENT);
+            if (installationInProgress) statusCard.add(statusLine("INSTALACIÓN / REPARACIÓN", "EN CURSO"));
+            if (updateBusy) {
+                String stateText = updateState == null ? "EN CURSO" : updateState.displayName().toUpperCase(java.util.Locale.ROOT);
+                statusCard.add(statusLine("ACTUALIZACIÓN DEL INSTALLER", stateText));
+            }
+            body.add(statusCard);
+        }
+
+        content.add(body, BorderLayout.CENTER);
+        root.add(content, BorderLayout.CENTER);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttons.setOpaque(false);
+        buttons.setBorder(new EmptyBorder(12, 34, 28, 34));
+
+        ModernButton keepOpen = new ModernButton(critical ? "CONTINUAR PROCESO" : "NO, CONTINUAR",
+                new Color(45, 42, 66), new Color(74, 65, 105));
+        keepOpen.setPreferredSize(new Dimension(210, 46));
+        keepOpen.addActionListener(e -> dialog.dispose());
+
+        ModernButton close = new ModernButton(critical ? "CERRAR DE TODOS MODOS" : "SÍ, CERRAR",
+                new Color(125, 52, 70), new Color(163, 74, 95));
+        close.setPreferredSize(new Dimension(220, 46));
+        close.addActionListener(e -> { confirmed[0] = true; dialog.dispose(); });
+
+        buttons.add(keepOpen);
+        buttons.add(close);
+        root.add(buttons, BorderLayout.SOUTH);
+
+        dialog.setContentPane(root);
+        dialog.getRootPane().setDefaultButton(keepOpen);
+        dialog.setVisible(true);
+        return confirmed[0];
+    }
+
+    private static JPanel statusLine(String label, String value) {
+        JPanel row = new JPanel(new BorderLayout(12, 0));
+        row.setOpaque(false);
+        JLabel left = new JLabel(label);
+        left.setForeground(new Color(175, 168, 197));
+        left.setFont(left.getFont().deriveFont(Font.BOLD, 11.5f));
+        JLabel right = new JLabel(value);
+        right.setForeground(new Color(255, 187, 116));
+        right.setFont(right.getFont().deriveFont(Font.BOLD, 11.5f));
+        row.add(left, BorderLayout.WEST);
+        row.add(right, BorderLayout.EAST);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        return row;
     }
 
     public static void showLogExported(Window owner, Path saved) {

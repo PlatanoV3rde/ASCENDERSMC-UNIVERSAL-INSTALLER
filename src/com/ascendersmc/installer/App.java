@@ -11,7 +11,7 @@ import javax.swing.*;
 import java.awt.*;
 
 public final class App {
-    public static final String VERSION = "0.8.2";
+    public static final String VERSION = "0.8.3";
     private App() {}
 
     public static void main(String[] args) {
@@ -50,7 +50,7 @@ public final class App {
             SwingUtilities.invokeLater(() -> {
                 InstallerFrame frame = new InstallerFrame(config);
                 frame.setVisible(true);
-                startBackgroundUpdateCheck(config);
+                startBackgroundUpdateCheck(config, frame);
             });
         } catch (Throwable throwable) {
             showStartupError(throwable);
@@ -61,12 +61,12 @@ public final class App {
      * La ventana se muestra antes de tocar la red. De esta forma un GitHub lento,
      * sin conexión o bloqueado no hace que un doble clic parezca no abrir nada.
      */
-    private static void startBackgroundUpdateCheck(InstallerConfig config) {
+    private static void startBackgroundUpdateCheck(InstallerConfig config, InstallerFrame frame) {
         Thread updater = new Thread(() -> {
             try {
                 // Pequeño margen para que Swing termine de pintar la ventana.
                 Thread.sleep(800L);
-                if (UpdateService.checkAndUpdate(config, VERSION)) {
+                if (UpdateService.checkAndUpdate(config, VERSION, () -> frame == null || !frame.isInstallationInProgress())) {
                     InstallerLogger.info("UPDATE", "Relevo entregado al JAR nuevo; cerrando versión " + VERSION);
                     System.exit(0);
                 }

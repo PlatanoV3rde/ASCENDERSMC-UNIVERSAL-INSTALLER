@@ -17,6 +17,7 @@ import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 /**
  * Auto-updater del propio ASCENDERSMC UNIVERSAL INSTALLER.
@@ -30,7 +31,29 @@ public final class UpdateService {
     private static final Duration API_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration DOWNLOAD_TIMEOUT = Duration.ofMinutes(5);
 
+    public enum UpdateState {
+        IDLE("Sin actualización en curso"),
+        CHECKING("Comprobando actualizaciones"),
+        DOWNLOADING("Descargando una actualización"),
+        READY_WAITING("Actualización descargada; esperando un momento seguro para reiniciar"),
+        APPLYING("Aplicando la actualización del Installer");
+
+        private final String displayName;
+        UpdateState(String displayName) { this.displayName = displayName; }
+        public String displayName() { return displayName; }
+        public boolean isBusy() { return this != IDLE; }
+        public boolean isCritical() { return this == DOWNLOADING || this == READY_WAITING || this == APPLYING; }
+    }
+
+    private static volatile UpdateState state = UpdateState.IDLE;
+
     private UpdateService() {}
+
+    public static UpdateState state() { return state; }
+    private static void setState(UpdateState next) {
+        state = next == null ? UpdateState.IDLE : next;
+        InstallerLogger.debug("UPDATE", "state=" + state);
+    }
 
     /**
      * Modo helper: se ejecuta desde el JAR nuevo, espera a que termine el proceso
@@ -44,6 +67,7 @@ public final class UpdateService {
         }
 
         try {
+            setState(UpdateState.APPLYING);
             Path targetJar = Path.of(args[1]).toAbsolutePath().normalize();
             long parentPid = Long.parseLong(args[2]);
             Path helperJar = currentJarPath().orElseThrow(() -> new IOException("No se pudo localizar el JAR helper"));
@@ -80,19 +104,26 @@ public final class UpdateService {
      * verifica y entrega el relevo al helper. Devuelve true cuando el proceso
      * actual debe finalizar para permitir el reemplazo.
      */
-    @SuppressWarnings("unchecked")
     public static boolean checkAndUpdate(InstallerConfig config, String currentVersion) {
+        return checkAndUpdate(config, currentVersion, () -> true);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static boolean checkAndUpdate(InstallerConfig config, String currentVersion, BooleanSupplier safeToRestart) {
         if (!config.updateEnabled()) {
+            setState(UpdateState.IDLE);
             InstallerLogger.debug("UPDATE", "check.skip | update.enabled=false");
             return false;
         }
 
         Optional<Path> runningJarOpt = currentJarPath();
         if (runningJarOpt.isEmpty()) {
+            setState(UpdateState.IDLE);
             InstallerLogger.debug("UPDATE", "check.skip | ejecución no proviene de un JAR");
             return false;
         }
 
+        setState(UpdateState.CHECKING);
         Path runningJar = runningJarOpt.get();
         InstallerLogger.debug("UPDATE", "check.begin | current=" + currentVersion
                 + " | jar=" + runningJar + " | api=" + config.updateReleaseApi());
@@ -112,6 +143,7 @@ public final class UpdateService {
             InstallerLogger.debug("UPDATE", "api.response | status=" + response.statusCode());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 InstallerLogger.warn("UPDATE", "No se pudo consultar la última Release (HTTP " + response.statusCode() + "). Se continúa sin actualizar.");
+                setState(UpdateState.IDLE);
                 return false;
             }
 
@@ -125,10 +157,12 @@ public final class UpdateService {
             if (compareVersions(latestVersion, currentVersion) <= 0) {
                 InstallerLogger.debug("UPDATE", "up-to-date | latest=" + latestVersion);
                 cleanupOldUpdates(config.updatesDir(), latestVersion);
+                setState(UpdateState.IDLE);
                 return false;
             }
 
             InstallerLogger.info("UPDATE", "Nueva versión disponible: " + currentVersion + " -> " + latestVersion);
+            setState(UpdateState.DOWNLOADING);
             Object assetsObj = release.get("assets");
             if (!(assetsObj instanceof List<?> assets)) throw new IOException("La Release no contiene assets");
 
@@ -171,6 +205,13 @@ public final class UpdateService {
                 throw new SecurityException("El JAR de actualización en caché no coincide con SHA256SUMS.txt");
             }
 
+            setState(UpdateState.READY_WAITING);
+            while (safeToRestart != null && !safeToRestart.getAsBoolean()) {
+                InstallerLogger.debug("UPDATE", "restart.defer | hay una instalación/reparación en curso");
+                TimeUnit.MILLISECONDS.sleep(500);
+            }
+
+            setState(UpdateState.APPLYING);
             long pid = ProcessHandle.current().pid();
             ProcessBuilder helper = new ProcessBuilder(
                     javaExecutable().toString(), "-jar", candidate.toString(),
@@ -180,6 +221,7 @@ public final class UpdateService {
             InstallerLogger.info("UPDATE", "Actualización validada. Reiniciando en " + latestVersion + "...");
             return true;
         } catch (Exception ex) {
+            setState(UpdateState.IDLE);
             InstallerLogger.warn("UPDATE", "No se pudo completar la comprobación automática: "
                     + ex.getClass().getSimpleName() + ": " + ex.getMessage());
             InstallerLogger.debug("UPDATE", "check.fail | " + ex);

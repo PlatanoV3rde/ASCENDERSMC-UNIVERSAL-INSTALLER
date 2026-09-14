@@ -1,0 +1,7 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label":"Build ASCENDERSMC Universal Installer","type":"shell","command":"${workspaceFolder}\\build.bat","problemMatcher":"$javac","group":{"kind":"build","isDefault":true}},
+    {"label":"Run ASCENDERSMC Universal Installer","type":"shell","command":"${workspaceFolder}\\run.bat","dependsOn":"Build ASCENDERSMC Universal Installer"}
+  ]
+}

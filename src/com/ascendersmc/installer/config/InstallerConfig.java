@@ -55,6 +55,7 @@ public final class InstallerConfig {
     public Path logsDir() { return baseDir.resolve("logs"); }
     public Path cacheDir() { return baseDir.resolve("cache"); }
     public Path importsDir() { return baseDir.resolve("imports"); }
+    public Path updatesDir() { return baseDir.resolve("updates"); }
 
     public Path profileRootDir(InstallerProfile profile, LauncherType launcherType) {
         return baseDir.resolve("profiles").resolve(profile.id()).resolve(launcherType.id());
@@ -76,6 +77,10 @@ public final class InstallerConfig {
     public int guiScale() { return Math.max(0, parseInt(properties.getProperty("first.run.gui.scale"), 2)); }
     public String serverResourcePackMode() { return properties.getProperty("server.resourcepack.mode", "NO").trim().toUpperCase(); }
     public boolean debugEnabled() { return Boolean.parseBoolean(properties.getProperty("debug.enabled", "true").trim()); }
+    public boolean updateEnabled() { return Boolean.parseBoolean(properties.getProperty("update.enabled", "true").trim()); }
+    public String updateReleaseApi() { return properties.getProperty("update.release.api", "https://api.github.com/repos/PlatanoV3rde/ASCENDERSMC-UNIVERSAL-INSTALLER/releases/latest").trim(); }
+    public String updateAssetName() { return properties.getProperty("update.asset.name", "ASCENDERSMC-UNIVERSAL-INSTALLER.jar").trim(); }
+    public String updateChecksumAssetName() { return properties.getProperty("update.checksum.asset.name", "SHA256SUMS.txt").trim(); }
 
     public ProfileConfig profile(InstallerProfile profile) {
         String key = "profile." + profile.id() + ".";

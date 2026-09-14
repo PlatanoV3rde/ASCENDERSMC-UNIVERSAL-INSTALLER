@@ -1,0 +1,8 @@
+.build/
+out/
+release/*.jar
+release/*.zip
+release/SHA256SUMS.txt
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,175 @@
+name: Publicar ASCENDERSMC Universal Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: "Notas adicionales de esta Release (opcional)"
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ascendersmc-installer-release
+  cancel-in-progress: false
+
+env:
+  DIST_REPO: PlatanoV3rde/ASCENDERSMC-UNIVERSAL-INSTALLER
+  JAR_NAME: ASCENDERSMC-UNIVERSAL-INSTALLER.jar
+  CHECKSUM_NAME: SHA256SUMS.txt
+
+jobs:
+  release:
+    name: Compilar y publicar Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Resolver versión
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/.*public static final String VERSION = "\([^"]*\)".*/\1/p' src/com/ascendersmc/installer/App.java | head -n1)"
+          if [[ -z "$VERSION" ]]; then
+            echo "No se pudo leer App.VERSION" >&2
+            exit 1
+          fi
+
+          TAG="v${VERSION}"
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME}" != "$TAG" ]]; then
+            echo "El tag ${GITHUB_REF_NAME} no coincide con App.VERSION=${VERSION} (esperado ${TAG})" >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Versión a publicar: $VERSION"
+
+      - name: Compilar JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x build.sh
+          ./build.sh
+          test -s "release/${JAR_NAME}"
+          test -s "release/${CHECKSUM_NAME}"
+          (cd release && sha256sum -c "${CHECKSUM_NAME}")
+
+      - name: Crear paquete de código fuente
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          git archive --format=zip --output="release/ASCENDERSMC-UNIVERSAL-INSTALLER-${VERSION}-SOURCE.zip" HEAD
+
+      - name: Generar notas de Release
+        id: notes
+        shell: bash
+        env:
+          EXTRA_NOTES: ${{ github.event.inputs.release_notes || '' }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES_FILE="release/RELEASE_NOTES.md"
+          python3 .github/scripts/build_release_notes.py "$VERSION" "$NOTES_FILE" "$EXTRA_NOTES"
+          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Validar secretos de publicación
+        shell: bash
+        env:
+          DIST_REPO_TOKEN: ${{ secrets.DIST_REPO_TOKEN }}
+          DISCORD_DOWNLOADS_WEBHOOK: ${{ secrets.DISCORD_DOWNLOADS_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$DIST_REPO_TOKEN" ]]; then
+            echo "Falta el Repository Secret DIST_REPO_TOKEN" >&2
+            exit 1
+          fi
+          if [[ -z "$DISCORD_DOWNLOADS_WEBHOOK" ]]; then
+            echo "Falta el Repository Secret DISCORD_DOWNLOADS_WEBHOOK" >&2
+            exit 1
+          fi
+
+      - name: Publicar o actualizar GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DIST_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          SOURCE_ZIP="release/ASCENDERSMC-UNIVERSAL-INSTALLER-${VERSION}-SOURCE.zip"
+
+          if gh release view "$TAG" --repo "$DIST_REPO" >/dev/null 2>&1; then
+            echo "La Release $TAG ya existe. Se comprobará que el binario publicado sea idéntico."
+            mkdir -p .release-check
+            gh release download "$TAG" \
+              --repo "$DIST_REPO" \
+              --dir .release-check \
+              --pattern "$JAR_NAME" \
+              --pattern "$CHECKSUM_NAME" \
+              --clobber
+
+            LOCAL_SHA="$(sha256sum "release/${JAR_NAME}" | awk '{print $1}')"
+            REMOTE_SHA="$(sha256sum ".release-check/${JAR_NAME}" | awk '{print $1}')"
+            if [[ "$LOCAL_SHA" != "$REMOTE_SHA" ]]; then
+              echo "La versión $VERSION ya fue publicada con un JAR diferente." >&2
+              echo "Incrementa App.VERSION y publica una nueva Release; los assets de una versión publicada no se reemplazan." >&2
+              exit 1
+            fi
+
+            gh release edit "$TAG" \
+              --repo "$DIST_REPO" \
+              --title "ASCENDERSMC Universal Installer ${VERSION}" \
+              --notes-file "${{ steps.notes.outputs.file }}" \
+              --latest
+          else
+            gh release create "$TAG" \
+              "release/${JAR_NAME}" \
+              "release/${CHECKSUM_NAME}" \
+              "$SOURCE_ZIP" \
+              --repo "$DIST_REPO" \
+              --target "$GITHUB_SHA" \
+              --title "ASCENDERSMC Universal Installer ${VERSION}" \
+              --notes-file "${{ steps.notes.outputs.file }}" \
+              --latest
+          fi
+
+      - name: Obtener enlaces públicos
+        id: links
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          RELEASE_URL="https://github.com/${DIST_REPO}/releases/tag/${TAG}"
+          DOWNLOAD_URL="https://github.com/${DIST_REPO}/releases/download/${TAG}/${JAR_NAME}"
+          echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+          echo "download_url=$DOWNLOAD_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Enviar anuncio a Discord
+        shell: bash
+        env:
+          DISCORD_DOWNLOADS_WEBHOOK: ${{ secrets.DISCORD_DOWNLOADS_WEBHOOK }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_URL: ${{ steps.links.outputs.release_url }}
+          DOWNLOAD_URL: ${{ steps.links.outputs.download_url }}
+          RELEASE_NOTES_FILE: ${{ steps.notes.outputs.file }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/post_discord_release.py

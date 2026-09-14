@@ -32,7 +32,7 @@ final class GitHubReleaseResolver {
         long start = System.nanoTime();
         HttpRequest req = HttpRequest.newBuilder(URI.create(api))
                 .timeout(Duration.ofSeconds(45))
-                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.1")
+                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.2")
                 .header("Accept", "application/vnd.github+json")
                 .GET().build();
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());

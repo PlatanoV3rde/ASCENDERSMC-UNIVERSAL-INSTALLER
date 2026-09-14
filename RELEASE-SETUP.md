@@ -31,15 +31,15 @@ Nunca guardes los valores de estos secretos en Java, `installer.properties`, YAM
 
 ## Publicar una versión
 
-1. Cambia `App.VERSION`, por ejemplo de `0.8.1` a `0.8.1`.
-2. Añade el changelog bajo `## 0.8.1` en `README.md`.
+1. Cambia `App.VERSION`, por ejemplo de `0.8.2` a `0.8.2`.
+2. Añade el changelog bajo `## 0.8.2` en `README.md`.
 3. Haz commit y push.
 4. Ejecuta **Actions → Publicar ASCENDERSMC UNIVERSAL INSTALLER → Run workflow**.
 
 También puedes publicar creando y subiendo un tag que coincida exactamente con la versión:
 
 ```text
-v0.8.1
+v0.8.2
 ```
 
 El workflow:

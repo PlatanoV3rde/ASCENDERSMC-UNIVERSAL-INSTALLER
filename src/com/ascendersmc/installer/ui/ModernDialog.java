@@ -92,35 +92,51 @@ public final class ModernDialog extends JDialog {
         JDialog dialog = new JDialog(owner);
         dialog.setModal(true);
         dialog.setUndecorated(true);
-        dialog.setSize(showStatus ? 820 : 760, showStatus ? 440 : 390);
-        dialog.setMinimumSize(dialog.getSize());
+        Dimension dialogSize = showStatus ? new Dimension(900, 420) : new Dimension(860, 300);
+        dialog.setSize(dialogSize);
+        dialog.setMinimumSize(dialogSize);
+        dialog.setResizable(false);
         dialog.setLocationRelativeTo(owner);
         dialog.setBackground(new Color(0, 0, 0, 0));
 
+        Color borderColor = critical ? new Color(165, 75, 90) : new Color(88, 71, 132);
         JPanel root = new JPanel(new BorderLayout());
-        root.setBorder(BorderFactory.createLineBorder(critical ? new Color(165, 75, 90) : new Color(88, 71, 132), 1));
+        root.setBorder(BorderFactory.createLineBorder(borderColor, 1));
         root.setBackground(new Color(20, 18, 31));
 
-        JPanel content = new JPanel(new BorderLayout(22, 0));
+        JPanel content = new JPanel(new BorderLayout(24, 0));
         content.setOpaque(false);
-        content.setBorder(new EmptyBorder(30, 34, 18, 34));
-        content.add(new Badge(critical ? Type.ERROR : Type.INFO, 88), BorderLayout.WEST);
+        content.setBorder(new EmptyBorder(28, 34, 18, 34));
+
+        JPanel badgeWrap = new JPanel(new BorderLayout());
+        badgeWrap.setOpaque(false);
+        badgeWrap.setPreferredSize(new Dimension(76, 76));
+        badgeWrap.setMinimumSize(new Dimension(76, 76));
+        badgeWrap.setMaximumSize(new Dimension(76, 76));
+        JPanel badgeTop = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        badgeTop.setOpaque(false);
+        badgeTop.add(new Badge(critical ? Type.ERROR : Type.INFO, 64));
+        badgeWrap.add(badgeTop, BorderLayout.NORTH);
+        content.add(badgeWrap, BorderLayout.WEST);
 
         JPanel body = new JPanel();
         body.setOpaque(false);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+
         JLabel title = new JLabel("¿CERRAR ASCENDERSMC UNIVERSAL INSTALLER?");
         title.setForeground(Color.WHITE);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 21f));
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
         body.add(title);
-        body.add(Box.createVerticalStrut(12));
+        body.add(Box.createVerticalStrut(10));
 
         JTextArea message = textArea(critical
                 ? "Hay un proceso activo. Cerrar ahora puede interrumpir la instalación, la reparación del perfil o la actualización del propio Installer.\n\nConfirma el cierre únicamente si deseas detener el proceso actual."
-                : "¿Deseas cerrar realmente el Installer? Esta confirmación ayuda a evitar cierres accidentales.", 14.2f);
+                : "¿Deseas cerrar realmente el Installer? Esta confirmación ayuda a evitar cierres accidentales.", 14f);
         message.setForeground(new Color(205, 198, 224));
-        message.setRows(critical ? 5 : 3);
-        message.setMaximumSize(new Dimension(Integer.MAX_VALUE, critical ? 118 : 78));
+        message.setRows(critical ? 4 : 2);
+        message.setAlignmentX(Component.LEFT_ALIGNMENT);
+        message.setMaximumSize(new Dimension(Integer.MAX_VALUE, critical ? 104 : 56));
         body.add(message);
 
         if (showStatus) {
@@ -128,9 +144,13 @@ public final class ModernDialog extends JDialog {
             JPanel statusCard = new JPanel();
             statusCard.setLayout(new BoxLayout(statusCard, BoxLayout.Y_AXIS));
             statusCard.setBackground(new Color(29, 24, 42));
-            statusCard.setBorder(new EmptyBorder(12, 14, 12, 14));
+            statusCard.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(62, 53, 86)),
+                    new EmptyBorder(11, 14, 11, 14)));
             statusCard.setAlignmentX(Component.LEFT_ALIGNMENT);
+            statusCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, installationInProgress && updateBusy ? 72 : 48));
             if (installationInProgress) statusCard.add(statusLine("INSTALACIÓN / REPARACIÓN", "EN CURSO"));
+            if (installationInProgress && updateBusy) statusCard.add(Box.createVerticalStrut(4));
             if (updateBusy) {
                 String stateText = updateState == null ? "EN CURSO" : updateState.displayName().toUpperCase(java.util.Locale.ROOT);
                 statusCard.add(statusLine("ACTUALIZACIÓN DEL INSTALLER", stateText));
@@ -143,7 +163,9 @@ public final class ModernDialog extends JDialog {
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         buttons.setOpaque(false);
-        buttons.setBorder(new EmptyBorder(12, 34, 28, 34));
+        buttons.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(49, 43, 67)),
+                new EmptyBorder(16, 34, 22, 34)));
 
         ModernButton keepOpen = new ModernButton(critical ? "CONTINUAR PROCESO" : "NO, CONTINUAR",
                 new Color(45, 42, 66), new Color(74, 65, 105));
@@ -383,31 +405,36 @@ public final class ModernDialog extends JDialog {
         private final Type type;
         private Badge(Type type, int size) {
             this.type = type;
-            setPreferredSize(new Dimension(size, size));
-            setMinimumSize(new Dimension(size, size));
+            Dimension fixed = new Dimension(size, size);
+            setPreferredSize(fixed);
+            setMinimumSize(fixed);
+            setMaximumSize(fixed);
         }
         @Override protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int diameter = Math.max(1, Math.min(getWidth(), getHeight()) - 1);
+            int ox = (getWidth() - diameter) / 2;
+            int oy = (getHeight() - diameter) / 2;
             Color fill = switch (type) {
                 case INFO -> new Color(76, 105, 205);
                 case SUCCESS -> new Color(54, 165, 111);
                 case ERROR -> new Color(166, 70, 93);
             };
             g2.setColor(fill);
-            g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
+            g2.fillOval(ox, oy, diameter, diameter);
             g2.setColor(new Color(142, 255, 196, type == Type.SUCCESS ? 220 : 130));
-            g2.drawOval(1, 1, getWidth() - 3, getHeight() - 3);
+            g2.drawOval(ox + 1, oy + 1, Math.max(1, diameter - 3), Math.max(1, diameter - 3));
             g2.setColor(Color.WHITE);
-            g2.setFont(getFont().deriveFont(Font.BOLD, Math.max(28f, getWidth() * 0.42f)));
+            g2.setFont(getFont().deriveFont(Font.BOLD, Math.max(24f, diameter * 0.42f)));
             String s = switch (type) {
                 case INFO -> "i";
                 case SUCCESS -> "✓";
                 case ERROR -> "!";
             };
             FontMetrics fm = g2.getFontMetrics();
-            int x = (getWidth() - fm.stringWidth(s)) / 2;
-            int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent() - 1;
+            int x = ox + (diameter - fm.stringWidth(s)) / 2;
+            int y = oy + (diameter - fm.getHeight()) / 2 + fm.getAscent() - 1;
             g2.drawString(s, x, y);
             g2.dispose();
         }

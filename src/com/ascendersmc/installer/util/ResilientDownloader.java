@@ -82,7 +82,7 @@ public final class ResilientDownloader {
             c.setUseCaches(false);
             c.setConnectTimeout(30_000);
             c.setReadTimeout((int) Math.min(Integer.MAX_VALUE, Math.max(30_000, timeout.toMillis())));
-            c.setRequestProperty("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.3");
+            c.setRequestProperty("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.4");
             c.setRequestProperty("Accept-Encoding", "identity");
             if (existing > 0) c.setRequestProperty("Range", "bytes=" + existing + "-");
 

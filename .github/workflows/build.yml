@@ -1,0 +1,42 @@
+name: Validar build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Compilar y validar checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x build.sh
+          ./build.sh
+          (cd release && sha256sum -c SHA256SUMS.txt)
+
+      - name: Guardar artefacto de prueba
+        uses: actions/upload-artifact@v4
+        with:
+          name: ASCENDERSMC-UNIVERSAL-INSTALLER-build
+          path: |
+            release/ASCENDERSMC-UNIVERSAL-INSTALLER.jar
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14

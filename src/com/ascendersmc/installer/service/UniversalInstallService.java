@@ -119,7 +119,7 @@ public final class UniversalInstallService {
             InstallerLogger.debug("SAFETY", "minecraft genérico=" + vanilla);
             if (mc.equals(vanilla) || mc.startsWith(vanilla.resolve("mods"))) {
                 InstallerLogger.warn("SAFETY", "Destino rechazado porque apunta a .minecraft genérico: " + mc);
-                throw new SecurityException("Por seguridad ASCENDERSMC Universal Installer nunca instala sobre .minecraft genérico.");
+                throw new SecurityException("Por seguridad ASCENDERSMC UNIVERSAL INSTALLER nunca instala sobre .minecraft genérico.");
             }
         }
     }

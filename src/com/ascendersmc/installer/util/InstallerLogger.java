@@ -19,7 +19,7 @@ public final class InstallerLogger {
         Files.createDirectories(logsDir);
         String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
         logFile = logsDir.resolve("installer-" + stamp + ".log");
-        info("BOOT", "ASCENDERSMC Universal Installer iniciado");
+        info("BOOT", "ASCENDERSMC UNIVERSAL INSTALLER iniciado");
         debug("BOOT", "Debug=" + debugEnabled + " | log=" + logFile.toAbsolutePath().normalize());
     }
 

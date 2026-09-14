@@ -138,7 +138,7 @@ public final class ModpackService {
         }
         Path manifest = state.resolve("mods-integrity.properties");
         try (var out = Files.newOutputStream(manifest)) {
-            p.store(out, "ASCENDERSMC Universal Installer");
+            p.store(out, "ASCENDERSMC UNIVERSAL INSTALLER");
         }
         InstallerLogger.debug("MODPACK", "integrity.write | file=" + manifest + " | entries=" + p.size());
     }

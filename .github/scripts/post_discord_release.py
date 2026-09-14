@@ -6,6 +6,7 @@ import os
 import pathlib
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -21,75 +22,95 @@ def read_changes(path: str) -> str:
     marker = "## Cambios de esta versión"
     start = text.find(marker)
     if start < 0:
-        return "Consulta la Release para ver todos los cambios."
+        return "Mejoras internas y ajustes del Installer."
     body = text[start + len(marker):]
     next_heading = body.find("\n## ")
     if next_heading >= 0:
         body = body[:next_heading]
     body = body.strip()
-    # Discord limita los fields; mantenemos el changelog compacto y enlazamos la Release.
     return body[:950] + ("…" if len(body) > 950 else "")
+
+
+def with_components(url: str) -> str:
+    parsed = urllib.parse.urlsplit(url)
+    query = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
+    query["with_components"] = "true"
+    query["wait"] = "true"
+    return urllib.parse.urlunsplit((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        urllib.parse.urlencode(query),
+        parsed.fragment,
+    ))
 
 
 def main() -> int:
     webhook = env("DISCORD_DOWNLOADS_WEBHOOK")
     version = env("RELEASE_VERSION")
-    release_url = env("RELEASE_URL")
     download_url = env("DOWNLOAD_URL")
     notes_file = env("RELEASE_NOTES_FILE")
     changes = read_changes(notes_file)
 
     payload = {
-        "username": "ASCENDERSMC Downloads",
+        "username": "ASCENDERSMC DESCARGAS",
         "allowed_mentions": {"parse": []},
         "embeds": [
             {
-                "title": f"ASCENDERSMC Universal Installer • v{version}",
-                "url": release_url,
+                "title": f"ASCENDERSMC UNIVERSAL INSTALLER • v{version}",
                 "description": (
-                    "**ASCENDERSMC Universal Installer** centraliza la instalación y el mantenimiento de los perfiles oficiales "
-                    "de **CobbleWorld** y **Pixelmon**. Detecta el launcher compatible, prepara un perfil aislado, instala o "
-                    "configura NeoForge cuando corresponde y mantiene sincronizados el modpack y el resource pack sin utilizar "
-                    "la carpeta global de mods del jugador.\n\n"
-                    "Las nuevas versiones del Installer se obtienen desde **GitHub Releases** y se validan mediante **SHA-256** "
-                    "antes de aplicar la actualización automática."
+                    "La instalación oficial de **ASCENDERSMC** en un solo lugar. Selecciona **CobbleWorld** o **Pixelmon**, "
+                    "elige tu launcher y el Installer prepara un perfil independiente con la versión correcta de Minecraft y NeoForge, "
+                    "descarga el modpack y coloca el resource pack correspondiente.\n\n"
+                    "Cuando ASCENDERSMC publique cambios, vuelve a ejecutar el Installer: el perfil se sincroniza con la distribución oficial, "
+                    "incluyendo **mods nuevos, actualizados o retirados**, sin mezclar archivos con otros perfiles del jugador. "
+                    "El propio Installer también puede mantenerse actualizado sin tener que descargar manualmente cada nueva versión."
                 ),
                 "color": 0x6D5DFB,
                 "fields": [
                     {
-                        "name": "Launchers compatibles",
-                        "value": "CurseForge • Prism Launcher • SKLauncher\nModrinth App • TLauncher • Minecraft Launcher",
+                        "name": "🎮 PERFILES ASCENDERSMC",
+                        "value": "**CobbleWorld**  •  **Pixelmon**",
                         "inline": False,
                     },
                     {
-                        "name": "Perfiles disponibles",
-                        "value": "CobbleWorld • Pixelmon",
-                        "inline": True,
-                    },
-                    {
-                        "name": "Actualización de contenido",
-                        "value": "Agrega, reemplaza o elimina mods según la Release y actualiza el resource pack administrado.",
-                        "inline": True,
-                    },
-                    {
-                        "name": "Cambios de esta versión",
-                        "value": changes or "Consulta la Release para ver todos los cambios.",
+                        "name": "🚀 LAUNCHERS COMPATIBLES",
+                        "value": (
+                            "**CurseForge** • **Prism Launcher** • **SKLauncher**\n"
+                            "**Modrinth App** • **TLauncher** • **Minecraft Launcher**"
+                        ),
                         "inline": False,
                     },
                     {
-                        "name": "¿Falta tu launcher?",
-                        "value": "Crea un **ticket** indicando el launcher, su versión y tu sistema operativo para solicitar que evaluemos compatibilidad.",
+                        "name": f"✨ NOVEDADES DE v{version}",
+                        "value": changes,
                         "inline": False,
                     },
                     {
-                        "name": "Descarga",
-                        "value": f"[Descargar Installer v{version}]({download_url}) • [Ver Release y checksums]({release_url})",
+                        "name": "🧩 ¿QUIERES SOPORTE PARA OTRO LAUNCHER?",
+                        "value": (
+                            "Abre un **ticket** e indica el nombre del launcher, su versión y tu sistema operativo. "
+                            "Revisaremos la viabilidad de añadir compatibilidad en una futura versión."
+                        ),
                         "inline": False,
                     },
                 ],
                 "footer": {
-                    "text": "ASCENDERSMC • Distribución oficial desde GitHub Releases"
+                    "text": "ASCENDERSMC • INSTALADOR OFICIAL"
                 },
+            }
+        ],
+        "components": [
+            {
+                "type": 1,
+                "components": [
+                    {
+                        "type": 2,
+                        "style": 5,
+                        "label": f"DESCARGAR INSTALLER v{version}",
+                        "url": download_url,
+                    }
+                ],
             }
         ],
     }
@@ -100,9 +121,9 @@ def main() -> int:
 
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
-        webhook,
+        with_components(webhook),
         data=data,
-        headers={"Content-Type": "application/json", "User-Agent": "ASCENDERSMC-Release-Workflow/1.0"},
+        headers={"Content-Type": "application/json", "User-Agent": "ASCENDERSMC-Release-Workflow/1.1"},
         method="POST",
     )
 
@@ -111,7 +132,12 @@ def main() -> int:
             if response.status not in (200, 204):
                 raise RuntimeError(f"Discord respondió HTTP {response.status}")
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Discord respondió HTTP {exc.code}") from exc
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:1000]
+        except Exception:
+            pass
+        raise RuntimeError(f"Discord respondió HTTP {exc.code}: {body}") from exc
 
     print(f"Anuncio de v{version} enviado correctamente a Discord.")
     return 0

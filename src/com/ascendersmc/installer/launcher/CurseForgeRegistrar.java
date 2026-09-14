@@ -486,7 +486,7 @@ public final class CurseForgeRegistrar {
                 .build();
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(45))
-                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.0")
+                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.1")
                 .GET().build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {

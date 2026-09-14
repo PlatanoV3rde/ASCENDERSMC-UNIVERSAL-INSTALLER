@@ -23,13 +23,17 @@ def main() -> int:
     version = sys.argv[1].strip()
     output = pathlib.Path(sys.argv[2])
     extra = sys.argv[3].strip() if len(sys.argv) > 3 else ""
-    readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+    repo_root = pathlib.Path(__file__).resolve().parents[2]
+    readme = (repo_root / "README.md").read_text(encoding="utf-8")
     changes = extract_version_section(readme, version)
 
     if not changes:
-        changes = "- Actualización del ASCENDERSMC Universal Installer."
+        changes = (
+            "- Mejoras de estabilidad y mantenimiento del Installer.\n"
+            "- Compatibilidad conservada con los launchers y perfiles oficiales de ASCENDERSMC."
+        )
 
-    body = f"""# ASCENDERSMC Universal Installer {version}
+    body = f"""# ASCENDERSMC UNIVERSAL INSTALLER {version}
 
 Instalador oficial para preparar y mantener los perfiles **CobbleWorld** y **Pixelmon** de ASCENDERSMC de forma aislada, sin utilizar la carpeta global de mods del jugador.
 
@@ -51,11 +55,9 @@ Instalador oficial para preparar y mantener los perfiles **CobbleWorld** y **Pix
         body += f"\n## Notas adicionales\n\n{extra}\n"
 
     body += """
-## Descarga segura
+## Solicitudes de compatibilidad
 
-La Release incluye `SHA256SUMS.txt`. El propio Installer utiliza ese checksum para validar futuras actualizaciones automáticas antes de reemplazar el JAR instalado.
-
-> ¿Quieres compatibilidad con otro launcher? Crea un ticket indicando el launcher, su versión y tu sistema operativo para que podamos evaluar su integración.
+¿Quieres compatibilidad con otro launcher? Crea un ticket indicando el launcher, su versión y tu sistema operativo para que podamos evaluar su integración.
 """
 
     output.parent.mkdir(parents=True, exist_ok=True)

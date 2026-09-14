@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Auto-updater del propio ASCENDERSMC Universal Installer.
+ * Auto-updater del propio ASCENDERSMC UNIVERSAL INSTALLER.
  *
  * La fuente de verdad es GitHub Releases. Discord solo anuncia publicaciones;
  * nunca participa en la cadena de actualización. Cada JAR descargado se valida
@@ -154,7 +154,7 @@ public final class UpdateService {
             if (!Files.isRegularFile(candidate) || !Hashing.sha256(candidate).equalsIgnoreCase(expectedSha)) {
                 Files.deleteIfExists(part);
                 ResilientDownloader.download(jarUrl, part, DOWNLOAD_TIMEOUT, 4,
-                        "ASCENDERSMC Universal Installer " + latestVersion);
+                        "ASCENDERSMC UNIVERSAL INSTALLER " + latestVersion);
                 String actual = Hashing.sha256(part);
                 InstallerLogger.debug("UPDATE", "sha256 | expected=" + expectedSha + " | actual=" + actual);
                 if (!actual.equalsIgnoreCase(expectedSha)) {

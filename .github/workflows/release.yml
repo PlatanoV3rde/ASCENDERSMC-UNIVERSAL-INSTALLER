@@ -1,4 +1,4 @@
-name: Publicar ASCENDERSMC Universal Installer
+name: Publicar ASCENDERSMC UNIVERSAL INSTALLER
 
 on:
   workflow_dispatch:
@@ -136,7 +136,7 @@ jobs:
 
             gh release edit "$TAG" \
               --repo "$DIST_REPO" \
-              --title "ASCENDERSMC Universal Installer ${VERSION}" \
+              --title "ASCENDERSMC UNIVERSAL INSTALLER ${VERSION}" \
               --notes-file "${{ steps.notes.outputs.file }}" \
               --latest
           else
@@ -146,7 +146,7 @@ jobs:
               "$SOURCE_ZIP" \
               --repo "$DIST_REPO" \
               --target "$GITHUB_SHA" \
-              --title "ASCENDERSMC Universal Installer ${VERSION}" \
+              --title "ASCENDERSMC UNIVERSAL INSTALLER ${VERSION}" \
               --notes-file "${{ steps.notes.outputs.file }}" \
               --latest
           fi

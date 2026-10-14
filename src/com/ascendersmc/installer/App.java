@@ -11,7 +11,7 @@ import javax.swing.*;
 import java.awt.*;
 
 public final class App {
-    public static final String VERSION = "0.9.0";
+    public static final String VERSION = "0.9.1";
     private App() {}
 
     public static void main(String[] args) {

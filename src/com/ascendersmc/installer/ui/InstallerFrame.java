@@ -2,6 +2,8 @@ package com.ascendersmc.installer.ui;
 
 import com.ascendersmc.installer.config.InstallerConfig;
 import com.ascendersmc.installer.launcher.LauncherDetector;
+import com.ascendersmc.installer.launcher.SkLauncher4Registry;
+import com.ascendersmc.installer.launcher.SkLauncherRegistrar;
 import com.ascendersmc.installer.model.InstallTarget;
 import com.ascendersmc.installer.model.InstallerProfile;
 import com.ascendersmc.installer.model.LauncherType;
@@ -546,7 +548,35 @@ public final class InstallerFrame extends JFrame {
             InstallerLogger.debug("UI", "Instalación ignorada: no hay launcher instalado seleccionado");
             return;
         }
-        InstallerLogger.debug("UI", "Inicio solicitado | profile=" + selectedProfile.displayName() + " | launcher=" + selectedTarget.launcherType().label() + " | dir=" + selectedTarget.minecraftDir());
+        final InstallTarget installTarget = selectedTarget;
+        final InstallerProfile installProfile = selectedProfile;
+        boolean closeSkLauncher = false;
+        if (installTarget.launcherType() == LauncherType.SKLAUNCHER
+                && SkLauncherRegistrar.isVersion4(installTarget)) {
+            var activeProcesses = SkLauncher4Registry.runningLauncherProcesses(installTarget);
+            if (!activeProcesses.isEmpty()) {
+                InstallerLogger.info("SKLAUNCHER4", "Launcher sigue ejecutándose en segundo plano | procesos=" + activeProcesses.size());
+                Object[] choices = {"CERRAR SKLAUNCHER Y CONTINUAR", "CANCELAR"};
+                int reply = JOptionPane.showOptionDialog(this,
+                        "SKLauncher 4 sigue activo (" + activeProcesses.size() + " proceso(s)), "
+                        + "aunque su ventana esté cerrada.\n\n"
+                        + "ASCENDERSMC Installer puede cerrar esos procesos automáticamente "
+                        + "para registrar o actualizar COBBLEWORLD/PIXELMON.\n"
+                        + "Guarda cualquier cambio pendiente: cerrar procesos puede descartar "
+                        + "configuraciones no guardadas.\n\n"
+                        + "¿Deseas cerrarlos y continuar con la instalación?",
+                        "SKLauncher 4 sigue en segundo plano",
+                        JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+                        null, choices, choices[0]);
+                if (reply != 0) {
+                    InstallerLogger.info("SKLAUNCHER4", "Cierre automático rechazado; instalación cancelada sin cambios");
+                    return;
+                }
+                closeSkLauncher = true;
+            }
+        }
+        final boolean closeSkLauncherWithConsent = closeSkLauncher;
+        InstallerLogger.debug("UI", "Inicio solicitado | profile=" + installProfile.displayName() + " | launcher=" + installTarget.launcherType().label() + " | dir=" + installTarget.minecraftDir());
         installButton.setEnabled(false);
         installationInProgress = true;
         progress.setValue(0);
@@ -554,7 +584,11 @@ public final class InstallerFrame extends JFrame {
         UiSoundService.click();
         Thread worker = new Thread(() -> {
             try {
-                var registration = new UniversalInstallService(config).install(selectedProfile, selectedTarget, (pct, msg) -> SwingUtilities.invokeLater(() -> {
+                if (closeSkLauncherWithConsent) {
+                    SwingUtilities.invokeLater(() -> progress.setString("Cerrando procesos SKLauncher 4..."));
+                    SkLauncher4Registry.closeLauncherProcessesWithConsent(installTarget);
+                }
+                var registration = new UniversalInstallService(config).install(installProfile, installTarget, (pct, msg) -> SwingUtilities.invokeLater(() -> {
                     progress.setValue(pct);
                     progress.setString(msg);
                 }));
@@ -562,7 +596,7 @@ public final class InstallerFrame extends JFrame {
                         + " | apertura automática del launcher deshabilitada");
                 SwingUtilities.invokeLater(() -> {
                     UiSoundService.success();
-                    ModernDialog.showInstallationCompleted(this, selectedProfile, selectedTarget, registration);
+                    ModernDialog.showInstallationCompleted(this, installProfile, installTarget, registration);
                 });
             } catch (Exception ex) {
                 InstallerLogger.error("INSTALL", ex.getMessage(), ex);

@@ -54,6 +54,16 @@ public class SkLauncher4NativeRegistryTest {
         check("21.1.248".equals(cw.get("loaderVersion")), "NeoForge incorrecto");
         check("1.21.1-neoforge-21.1.248".equals(cw.get("versionId")), "versionId incorrecto");
         check(Boolean.TRUE.equals(cw.get("installComplete")), "No marcado como instalado");
+        String iconUri = (String) cw.get("icon");
+        check(iconUri.startsWith("starship-icon://icons/ascendersmc-cobbleworld/")
+                && iconUri.endsWith(".png"), "No registró el logo ASCENDERSMC en formato nativo");
+        Path iconFile = root.resolve(iconUri.substring("starship-icon://".length()));
+        check(Files.isRegularFile(iconFile) && Files.size(iconFile) > 1000,
+                "No copió el logo a los iconos nativos de SKLauncher");
+        try (var bundled = SkLauncher4NativeRegistryTest.class.getResourceAsStream("/assets/profile-cobbleworld.png")) {
+            check(bundled != null && Arrays.equals(Files.readAllBytes(iconFile), bundled.readAllBytes()),
+                    "El logo nativo es distinto del recurso incluido");
+        }
         check(mc.toString().equals(cw.get("directory")), "Carpeta incorrecta");
         check(Files.exists(mc.resolve("mods/important.jar")), "Eliminó un mod original");
         check(mc.equals(SkLauncher4Registry.findRegisteredInstance(instances,InstallerProfile.COBBLEWORLD)),
@@ -64,6 +74,22 @@ public class SkLauncher4NativeRegistryTest {
         parsed=SimpleJson.parse(Files.readString(root.resolve("instances.json")));
         list=(List<Map<String,Object>>)((Map<String,Object>)parsed).get("instances");
         check(list.size()==2,"Actualización duplicó instancia");
+        check(iconUri.equals(list.get(1).get("icon")), "Actualización perdió el logo de ASCENDERSMC");
+        // A manually selected custom icon must not be replaced on repair.
+        list.get(1).put("icon", "starship-icon://icons/user-choice/custom.png");
+        Files.writeString(root.resolve("instances.json"), SimpleJson.stringify(Map.of("instances", list)));
+        SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
+                "1.21.1", "21.1.248", mc);
+        parsed=SimpleJson.parse(Files.readString(root.resolve("instances.json")));
+        list=(List<Map<String,Object>>)((Map<String,Object>)parsed).get("instances");
+        check("starship-icon://icons/user-choice/custom.png".equals(list.get(1).get("icon")),
+                "No debe sobrescribir el logo personalizado por el jugador");
+        check(SkLauncher4Registry.executableMatches(root.resolve("sklauncher.exe").toString(),
+                    root.resolve("sklauncher.exe")), "No detecta el ejecutable de forma exacta");
+        check(!SkLauncher4Registry.executableMatches(root.resolve("other/sklauncher.exe").toString(),
+                    root.resolve("sklauncher.exe")), "Detectó un launcher diferente");
+        check(!SkLauncher4Registry.executableMatches(root.resolve("javaw.exe").toString(),
+                    root.resolve("sklauncher.exe")), "Confundió Minecraft con SKLauncher");
 
         SkLauncher4Registry.register(instances, InstallerProfile.PIXELMON,
                 "1.21.1","21.1.248",px);
@@ -73,6 +99,9 @@ public class SkLauncher4NativeRegistryTest {
         check(instances.resolve("ascendersmc-pixelmon").equals(
                 SkLauncher4Registry.findRegisteredInstance(instances,InstallerProfile.PIXELMON)),
                 "Pixelmon no se encuentra");
+        check(String.valueOf(list.get(2).get("icon"))
+                .startsWith("starship-icon://icons/ascendersmc-pixelmon/"),
+                "Pixelmon no tiene su propio icono ASCENDERSMC");
 
         Path malicious = root.resolve("outside");
         Files.createDirectories(malicious);
@@ -90,6 +119,6 @@ public class SkLauncher4NativeRegistryTest {
         check(refused && Files.readString(root.resolve("instances.json")).equals("{BROKEN"),
                 "No debe sobrescribir un registro dañado o de formato desconocido");
         Files.writeString(root.resolve("instances.json"), good);
-        System.out.println("PASS: instances.json SKLauncher 4.0.54, respaldo, aislamiento, NeoForge y actualizaciones idempotentes");
+        System.out.println("PASS: registro nativo, iconos COBBLEWORLD/PIXELMON, iconos personalizados, procesos, respaldo, aislamiento y actualizaciones");
     }
 }

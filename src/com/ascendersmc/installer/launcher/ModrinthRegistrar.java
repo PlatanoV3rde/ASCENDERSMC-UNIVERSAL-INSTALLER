@@ -137,19 +137,29 @@ public final class ModrinthRegistrar {
         Files.deleteIfExists(tmp);
         try {
             try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(tmp))) {
-                putBytes(zos, "modrinth.index.json", SimpleJson.stringify(index).getBytes(StandardCharsets.UTF_8));
+                // Un .mrpack jamás debe repetir una ruta, incluso si el sistema
+                // de archivos la escribió con distinto uso de mayúsculas.
+                Set<String> added = new HashSet<>();
+                putBytes(zos, added, "modrinth.index.json", SimpleJson.stringify(index).getBytes(StandardCharsets.UTF_8));
                 // Este marcador solo lo recibirá el perfil creado por la aplicación
                 // de Modrinth, no la carpeta de staging ni la antigua huérfana.
-                putBytes(zos, "overrides/" + IMPORT_MARKER,
+                putBytes(zos, added, "overrides/" + IMPORT_MARKER,
                         (markerContent(profile.profile()) + "\n").getBytes(StandardCharsets.UTF_8));
                 byte[] icon = readBundledLogo();
-                if (icon != null) putBytes(zos, "overrides/icon.png", icon);
+                // Priorizamos el icono oficial sobre el que pueda existir en el
+                // perfil viejo. Nunca podemos empaquetar ambos como icon.png.
+                if (icon != null) putBytes(zos, added, "overrides/icon.png", icon);
                 if (Files.isDirectory(source)) {
                     try (var stream = Files.walk(source)) {
                         for (Path file : stream.filter(Files::isRegularFile).toList()) {
                             String rel = source.relativize(file).toString().replace('\\', '/');
                             if (shouldSkip(rel) || Files.isSymbolicLink(file)) continue;
-                            ZipEntry e = new ZipEntry("overrides/" + rel);
+                            String entryName = "overrides/" + rel;
+                            if (!added.add(entryName.toLowerCase(Locale.ROOT))) {
+                                InstallerLogger.debug("MODRINTH", "mrpack.duplicate.skip | " + entryName);
+                                continue;
+                            }
+                            ZipEntry e = new ZipEntry(entryName);
                             zos.putNextEntry(e);
                             Files.copy(file, zos);
                             zos.closeEntry();
@@ -171,6 +181,7 @@ public final class ModrinthRegistrar {
     private static boolean shouldSkip(String rel) {
         String n = rel.toLowerCase(Locale.ROOT);
         return n.equals(IMPORT_MARKER.toLowerCase(Locale.ROOT))
+                || n.equals("icon.png")
                 || n.equals("ascendersmc-profile.txt")
                 || n.equals("leeme-ascendersmc.txt")
                 || n.startsWith("logs/") || n.startsWith("crash-reports/")
@@ -199,7 +210,10 @@ public final class ModrinthRegistrar {
         }
     }
 
-    private static void putBytes(ZipOutputStream zos, String name, byte[] bytes) throws IOException {
+    private static void putBytes(ZipOutputStream zos, Set<String> added, String name, byte[] bytes) throws IOException {
+        if (!added.add(name.toLowerCase(Locale.ROOT))) {
+            throw new ZipException("Entrada reservada duplicada: " + name);
+        }
         zos.putNextEntry(new ZipEntry(name));
         zos.write(bytes);
         zos.closeEntry();

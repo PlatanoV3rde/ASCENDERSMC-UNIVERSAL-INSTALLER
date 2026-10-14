@@ -6,6 +6,7 @@ import com.ascendersmc.installer.model.InstallerProfile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.zip.ZipFile;
+import java.util.*;
 
 /** Sin Modrinth real: prueba regresiones del registro vs carpeta huérfana. */
 public final class ModrinthRegistrationSmokeTest {
@@ -16,6 +17,12 @@ public final class ModrinthRegistrationSmokeTest {
         Files.createDirectories(orphan.resolve("mods"));
         Files.writeString(orphan.resolve("mods/existing.jar"), "test", StandardCharsets.UTF_8);
         Files.writeString(orphan.resolve("ASCENDERSMC-PROFILE.txt"), "old", StandardCharsets.UTF_8);
+        // Regresión v0.8.6: este archivo ya existía en el perfil huérfano y
+        // generaba ZipException: duplicate entry: overrides/icon.png.
+        Files.writeString(orphan.resolve("icon.png"), "old icon", StandardCharsets.UTF_8);
+        Files.writeString(orphan.resolve("ICON.PNG"), "old icon upper case", StandardCharsets.UTF_8);
+        Files.createDirectories(orphan.resolve("resourcepacks"));
+        Files.writeString(orphan.resolve("resourcepacks/ASCENDERSMC_COBBLEMON.zip"), "resources", StandardCharsets.UTF_8);
         if (ModrinthRegistrar.findImportedInstance(nativeRoot, InstallerProfile.COBBLEWORLD) != null)
             throw new AssertionError("Una carpeta huérfana NO es una instancia importada");
 
@@ -30,6 +37,16 @@ public final class ModrinthRegistrationSmokeTest {
             if (zip.getEntry("overrides/" + ModrinthRegistrar.IMPORT_MARKER) == null) throw new AssertionError("Falta marcador");
             if (zip.getEntry("overrides/mods/existing.jar") == null) throw new AssertionError("No conserva mods");
             if (zip.getEntry("overrides/ASCENDERSMC-PROFILE.txt") != null) throw new AssertionError("Incluyó info del staging");
+            if (zip.getEntry("overrides/icon.png") == null) throw new AssertionError("No guardó icono oficial");
+            if (zip.getEntry("overrides/ICON.PNG") != null) throw new AssertionError("Incluyó el icono duplicado");
+            if (zip.getEntry("overrides/resourcepacks/ASCENDERSMC_COBBLEMON.zip") == null)
+                throw new AssertionError("No conserva el resourcepack");
+            Set<String> seen = new HashSet<>();
+            var entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                String entry = entries.nextElement().getName().toLowerCase(Locale.ROOT);
+                if (!seen.add(entry)) throw new AssertionError("Entrada duplicada dentro del mrpack: " + entry);
+            }
             String idx = new String(zip.getInputStream(zip.getEntry("modrinth.index.json")).readAllBytes(), StandardCharsets.UTF_8);
             if (!idx.contains("\"neoforge\": \"21.1.248\"")) throw new AssertionError("NeoForge incorrecto: " + idx);
         }
@@ -42,6 +59,9 @@ public final class ModrinthRegistrationSmokeTest {
             throw new AssertionError("No localizó el perfil importado con nombre modificado");
         if (ModrinthRegistrar.findImportedInstance(nativeRoot, InstallerProfile.PIXELMON) != null)
             throw new AssertionError("Se cruzaron los perfiles Cobbleworld/Pixelmon");
-        System.out.println("OK: carpetas huérfanas, paquete MRPACK, NeoForge y búsqueda de instancias importadas");
+        // Una segunda generación con los mismos archivos no debe fallar.
+        ModrinthRegistrar.buildMrpack(config, orphan, pack);
+        if (!Files.isRegularFile(pack)) throw new AssertionError("No se pudo regenerar .mrpack");
+        System.out.println("OK: carpetas huérfanas, icon.png sin duplicados, MRPACK, resourcepack, NeoForge y búsqueda de instancias importadas");
     }
 }

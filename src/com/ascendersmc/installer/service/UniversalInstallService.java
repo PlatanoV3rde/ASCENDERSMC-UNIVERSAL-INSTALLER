@@ -40,6 +40,9 @@ public final class UniversalInstallService {
                 + " | resourcePack=" + profile.resourcePackAssetName());
 
         validateSafety(target);
+        if (target.launcherType() == com.ascendersmc.installer.model.LauncherType.SKLAUNCHER) {
+            SkLauncherRegistrar.preflight(target);
+        }
         InstallerLogger.debug("FLOW", "safety.ok | destino aislado confirmado");
 
         Files.createDirectories(target.minecraftDir());

@@ -68,8 +68,12 @@ public final class SkLauncher4CompatibilityTest {
         Files.createDirectories(imported);
         Files.writeString(imported.resolve(SkLauncherRegistrar.IMPORT_MARKER),
                 SkLauncherRegistrar.markerContent(InstallerProfile.COBBLEWORLD));
+        check(SkLauncherRegistrar.findImportedInstance(instances, InstallerProfile.COBBLEWORLD) == null,
+                "Un marcador huérfano no es registro nativo");
+        SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
+                "1.21.1", "21.1.248", imported);
         check(imported.equals(SkLauncherRegistrar.findImportedInstance(instances, InstallerProfile.COBBLEWORLD)),
-                "No encontró la instancia importada");
+                "No encontró la instancia registrada en instances.json");
         check(SkLauncherRegistrar.findImportedInstance(instances, InstallerProfile.PIXELMON) == null,
                 "Se mezclaron las instancias de Pixelmon y Cobbleworld");
 

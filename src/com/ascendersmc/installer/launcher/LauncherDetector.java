@@ -113,9 +113,9 @@ public final class LauncherDetector {
                         launcherRoot = envPath("APPDATA", ".sklauncher");
                         Path found = SkLauncherRegistrar.findImportedInstance(config.sklauncher4InstancesDir(), profile);
                         instanceRoot = found != null ? found
-                                : config.sklauncher4InstancesDir().resolve(instanceName(profile));
-                        minecraftDir = found != null ? found
-                                : config.profileRootDir(profile, type).resolve("sklauncher4").resolve("minecraft");
+                                : config.sklauncher4InstancesDir().resolve(SkLauncher4Registry.id(profile));
+                        // Native 4.x directory from the start; never install into orphan staging.
+                        minecraftDir = instanceRoot;
                         InstallerLogger.info("DETECT", "sklauncher.version=4.x | nativeRoot="
                                 + config.sklauncher4InstancesDir() + " | registeredInstance=" + found);
                     } else {

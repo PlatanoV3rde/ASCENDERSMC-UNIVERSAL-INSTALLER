@@ -5,19 +5,18 @@ import com.ascendersmc.installer.model.InstallTarget;
 import com.ascendersmc.installer.model.InstallerProfile;
 import com.ascendersmc.installer.util.InstallerLogger;
 
-import java.awt.Desktop;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.util.*;
+import java.util.Locale;
 
 /**
  * Compatibilidad de SKLauncher 3.2 y SKLauncher 4.x.
  *
  * SK 3.x usa launcher_profiles.json (OfficialLauncherRegistrar).
- * SK 4.x tiene su propio almacén y un importador de modpacks. Crear carpetas
- * debajo de instances/ NO registra la instancia. No se altera su base de datos.
- * Se intenta automatizar la importación mediante su interfaz nativa en Windows.
- * Si no es comprobable, se informa honestamente que la importación sigue pendiente.
+ * SK 4.x registra instancias en .sklauncher/instances.json (confirmado con datos
+ * reales de SKLauncher 4.0.54). La creación se hace mediante escritura atómica
+ * y copia de seguridad, sin automatización de pantalla ni importación .mrpack.
+ * No registrar mientras SKLauncher está ejecutándose.
  */
 public final class SkLauncherRegistrar {
     public static final String IMPORT_MARKER = "ASCENDERSMC-SKLAUNCHER4-IMPORT.txt";
@@ -53,6 +52,10 @@ public final class SkLauncherRegistrar {
                 && target.launcherRoot().getFileName().toString().equalsIgnoreCase(".sklauncher");
     }
 
+    public static void preflight(InstallTarget target) {
+        if (isVersion4(target)) SkLauncher4Registry.assertLauncherClosed(target);
+    }
+
     public static LauncherRegistration register(InstallerConfig config,
                                                 InstallerConfig.ProfileConfig profile,
                                                 InstallTarget target) throws Exception {
@@ -60,45 +63,19 @@ public final class SkLauncherRegistrar {
             OfficialLauncherRegistrar.register(profile, target);
             return LauncherRegistration.ready("Perfil SKLauncher 3.x registrado");
         }
-
-        Path imported = findImportedInstance(config.sklauncher4InstancesDir(), profile.profile());
-        if (imported != null && imported.equals(target.minecraftDir())) {
-            InstallerLogger.info("SKLAUNCHER4", "Instancia importada; actualizado su contenido: " + imported);
-            return LauncherRegistration.ready("Instancia SKLauncher 4.x actualizada");
+        SkLauncher4Registry.assertLauncherClosed(target);
+        SkLauncher4Registry.register(config.sklauncher4InstancesDir(), profile.profile(),
+                profile.minecraftVersion(), profile.neoForgeVersion(), target.minecraftDir());
+        Files.writeString(target.minecraftDir().resolve(IMPORT_MARKER),
+                markerContent(profile.profile()), StandardCharsets.UTF_8);
+        String versionId = profile.minecraftVersion() + "-neoforge-" + profile.neoForgeVersion();
+        Path nativeVersion = config.sklauncher4InstancesDir().getParent()
+                .resolve("versions").resolve(versionId).resolve(versionId + ".json");
+        if (!Files.isRegularFile(nativeVersion)) {
+            InstallerLogger.warn("SKLAUNCHER4", "Instancia registrada; aún no aparece el descriptor "
+                    + nativeVersion + ". SKLauncher podría descargar el runtime en el primer inicio.");
         }
-
-        Path dir = config.stateDir(profile.profile()).resolve("sklauncher4");
-        Files.createDirectories(dir);
-        Path mrpack = dir.resolve("ASCENDERSMC-" + profile.profile().displayName() + "-SKLAUNCHER4.mrpack");
-        ModrinthRegistrar.buildMrpack(profile, target.minecraftDir(), mrpack,
-                IMPORT_MARKER, markerContent(profile.profile()));
-        InstallerLogger.info("SKLAUNCHER4", "Paquete .mrpack generado | " + mrpack);
-        // Registro por la propia interfaz de SKLauncher: no inventar esquemas de
-        // datos internos, ni asumir que solo crear un directorio lo registra.
-        // La verificacion ocurre despues de que el launcher haya importado el pack.
-        if (SkLauncher4AutoImporter.tryImport(config, profile.profile(), target, mrpack)) {
-            return LauncherRegistration.ready("Instancia SKLauncher 4.x importada y verificada automaticamente");
-        }
-        InstallerLogger.warn("SKLAUNCHER4", "La importacion automatica no se pudo confirmar; paquete disponible como alternativa");
-
-        // No asumir asociación de .mrpack: Windows suele enviarlo a Modrinth
-        // cuando ambos launchers están instalados. Abrir solo la carpeta.
-        try {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
-                Desktop.getDesktop().open(mrpack.getParent().toFile());
-            }
-        } catch (Exception e) {
-            InstallerLogger.debug("SKLAUNCHER4", "No se pudo abrir carpeta de importación: " + e.getMessage());
-        }
-        String instructions = "Abre SKLauncher 4.x, entra en Biblioteca > Importar desde archivo "
-                + "(o arrastra el paquete al launcher) y selecciona este .mrpack. "
-                + "Termina la importación y comprueba que ASCENDERSMC " + profile.profile().displayName()
-                + " aparezca como instancia con Minecraft " + profile.minecraftVersion()
-                + " y NeoForge " + profile.neoForgeVersion() + ". "
-                + "No borres la carpeta anterior. Cuando importes el perfil, las futuras actualizaciones "
-                + "del Installer usarán la ubicación de esa instancia, siempre que permanezca en la carpeta "
-                + "de instancias configurada en el instalador.";
-        return new LauncherRegistration(true, mrpack, "Importación pendiente en SKLauncher 4.x", instructions);
+        return LauncherRegistration.ready("Instancia SKLauncher 4.x registrada de forma nativa");
     }
 
     static String markerContent(InstallerProfile profile) {
@@ -106,29 +83,6 @@ public final class SkLauncherRegistrar {
     }
 
     public static Path findImportedInstance(Path instancesDir, InstallerProfile profile) {
-        if (instancesDir == null || profile == null || !Files.isDirectory(instancesDir)) return null;
-        List<Path> found = new ArrayList<>();
-        try (var dirs = Files.list(instancesDir)) {
-            for (Path candidate : dirs.filter(Files::isDirectory).toList()) {
-                Path marker = candidate.resolve(IMPORT_MARKER);
-                if (!Files.isRegularFile(marker)) continue;
-                try {
-                    if (Files.readString(marker, StandardCharsets.UTF_8).trim().equals(markerContent(profile))) {
-                        found.add(candidate.toAbsolutePath().normalize());
-                    }
-                } catch (Exception ignored) { }
-            }
-        } catch (Exception ex) {
-            InstallerLogger.warn("SKLAUNCHER4", "No se pudieron buscar instancias importadas: " + ex.getMessage());
-        }
-        if (found.isEmpty()) return null;
-        found.sort(Comparator.comparingLong(SkLauncherRegistrar::modified).reversed());
-        if (found.size() > 1) InstallerLogger.warn("SKLAUNCHER4", "Varias instancias ASCENDERSMC; usando la más reciente: " + found);
-        return found.get(0);
-    }
-
-    private static long modified(Path root) {
-        try { return Files.getLastModifiedTime(root.resolve(IMPORT_MARKER)).toMillis(); }
-        catch (Exception ex) { return 0; }
+        return SkLauncher4Registry.findRegisteredInstance(instancesDir, profile);
     }
 }

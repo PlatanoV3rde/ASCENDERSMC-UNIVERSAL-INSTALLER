@@ -69,6 +69,15 @@ public final class InstallerConfig {
         return launcherProfileDir(profile, LauncherType.OFFICIAL);
     }
 
+    /** Almacenamiento opcional personalizado de SKLauncher 4, normalmente no necesario. */
+    public Path sklauncher4InstancesDir() {
+        String configured = properties.getProperty("sklauncher4.instances.dir", "").trim();
+        if (!configured.isBlank()) return Path.of(configured).toAbsolutePath().normalize();
+        String appdata = env("APPDATA");
+        if (appdata != null) return Path.of(appdata, ".sklauncher", "instances").toAbsolutePath().normalize();
+        return Path.of(System.getProperty("user.home"), ".sklauncher", "instances").toAbsolutePath().normalize();
+    }
+
     public Path stateDir(InstallerProfile profile) {
         return baseDir.resolve("profiles").resolve(profile.id()).resolve("state");
     }

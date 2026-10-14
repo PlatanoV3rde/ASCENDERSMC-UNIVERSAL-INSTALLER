@@ -120,6 +120,14 @@ public final class ModrinthRegistrar {
     }
 
     static void buildMrpack(InstallerConfig.ProfileConfig profile, Path source, Path output) throws Exception {
+        buildMrpack(profile, source, output, IMPORT_MARKER, markerContent(profile.profile()));
+    }
+
+    /** Reutiliza el esquema Modrinth en importadores compatibles sin cruzar marcadores. */
+    static void buildMrpack(InstallerConfig.ProfileConfig profile, Path source, Path output,
+                            String markerName, String markerValue) throws Exception {
+        if (!markerName.matches("[A-Za-z0-9_-]+\\.txt"))
+            throw new IllegalArgumentException("Nombre de marcador no permitido: " + markerName);
         Map<String,Object> deps = new LinkedHashMap<>();
         deps.put("minecraft", profile.minecraftVersion());
         deps.put("neoforge", profile.neoForgeVersion());
@@ -143,8 +151,8 @@ public final class ModrinthRegistrar {
                 putBytes(zos, added, "modrinth.index.json", SimpleJson.stringify(index).getBytes(StandardCharsets.UTF_8));
                 // Este marcador solo lo recibirá el perfil creado por la aplicación
                 // de Modrinth, no la carpeta de staging ni la antigua huérfana.
-                putBytes(zos, added, "overrides/" + IMPORT_MARKER,
-                        (markerContent(profile.profile()) + "\n").getBytes(StandardCharsets.UTF_8));
+                putBytes(zos, added, "overrides/" + markerName,
+                        (markerValue + "\n").getBytes(StandardCharsets.UTF_8));
                 byte[] icon = readBundledLogo();
                 // Priorizamos el icono oficial sobre el que pueda existir en el
                 // perfil viejo. Nunca podemos empaquetar ambos como icon.png.
@@ -153,7 +161,7 @@ public final class ModrinthRegistrar {
                     try (var stream = Files.walk(source)) {
                         for (Path file : stream.filter(Files::isRegularFile).toList()) {
                             String rel = source.relativize(file).toString().replace('\\', '/');
-                            if (shouldSkip(rel) || Files.isSymbolicLink(file)) continue;
+                            if (shouldSkip(rel) || rel.equalsIgnoreCase(markerName) || Files.isSymbolicLink(file)) continue;
                             String entryName = "overrides/" + rel;
                             if (!added.add(entryName.toLowerCase(Locale.ROOT))) {
                                 InstallerLogger.debug("MODRINTH", "mrpack.duplicate.skip | " + entryName);

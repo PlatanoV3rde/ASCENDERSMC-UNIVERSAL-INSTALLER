@@ -55,7 +55,7 @@ final class WindowsLauncherDiscovery {
     }
 
     record Shortcut(Path shortcut, String name) {}
-    record InstalledApp(String displayName, String installLocation, String displayIcon, String uninstallString, String registryKey) {}
+    record InstalledApp(String displayName, String installLocation, String displayIcon, String uninstallString, String registryKey, String displayVersion) {}
     record AppxPackage(String name, String packageFamilyName, String installLocation) {}
 
     private static final Duration COMMAND_TIMEOUT = Duration.ofSeconds(12);
@@ -92,6 +92,18 @@ final class WindowsLauncherDiscovery {
                 .filter(app -> matchesAny(safe(app.displayName()).toLowerCase(Locale.ROOT), tokens))
                 .sorted(Comparator.comparingInt((InstalledApp app) -> installedAppScore(app, tokens)).reversed())
                 .findFirst();
+    }
+
+    /** Priorizar 4.x cuando coexisten registros 3.x y 4.x. */
+    Optional<InstalledApp> findSkLauncherV4App() {
+        return installedApps.stream().filter(a -> {
+            String name = safe(a.displayName()).toLowerCase(Locale.ROOT);
+            String version = safe(a.displayVersion()).toLowerCase(Locale.ROOT);
+            return (name.contains("sklauncher") || name.contains("sk launcher"))
+                && (version.equals("4") || version.startsWith("4.")
+                    || name.contains("sklauncher 4") || name.contains("sklauncher4")
+                    || name.contains("sklauncher next"));
+        }).findFirst();
     }
 
     Optional<AppxPackage> findAppxPackage(String... packageNamesOrFamilies) {
@@ -216,15 +228,16 @@ final class WindowsLauncherDiscovery {
         String installLocation = null;
         String displayIcon = null;
         String uninstallString = null;
+        String displayVersion = null;
 
         for (String raw : lines) {
             String line = raw == null ? "" : raw.stripTrailing();
             if (line.startsWith("HKEY_")) {
                 if (currentKey != null && displayName != null && !displayName.isBlank()) {
-                    out.add(new InstalledApp(displayName, nvl(installLocation), nvl(displayIcon), nvl(uninstallString), currentKey));
+                    out.add(new InstalledApp(displayName, nvl(installLocation), nvl(displayIcon), nvl(uninstallString), currentKey, nvl(displayVersion)));
                 }
                 currentKey = line.trim();
-                displayName = installLocation = displayIcon = uninstallString = null;
+                displayName = installLocation = displayIcon = uninstallString = displayVersion = null;
                 continue;
             }
 
@@ -235,6 +248,7 @@ final class WindowsLauncherDiscovery {
                 case "displayname" -> displayName = value.data();
                 case "installlocation" -> installLocation = value.data();
                 case "displayicon" -> displayIcon = value.data();
+                case "displayversion" -> displayVersion = value.data();
                 case "uninstallstring", "quietuninstallstring" -> {
                     if (uninstallString == null || uninstallString.isBlank()) uninstallString = value.data();
                 }
@@ -243,7 +257,7 @@ final class WindowsLauncherDiscovery {
         }
 
         if (currentKey != null && displayName != null && !displayName.isBlank()) {
-            out.add(new InstalledApp(displayName, nvl(installLocation), nvl(displayIcon), nvl(uninstallString), currentKey));
+            out.add(new InstalledApp(displayName, nvl(installLocation), nvl(displayIcon), nvl(uninstallString), currentKey, nvl(displayVersion)));
         }
     }
 

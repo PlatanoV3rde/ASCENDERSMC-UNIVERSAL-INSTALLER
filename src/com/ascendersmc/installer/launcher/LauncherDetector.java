@@ -69,6 +69,14 @@ public final class LauncherDetector {
 
         Optional<WindowsLauncherDiscovery.Shortcut> shortcut = windows.findShortcut(tokens);
         Optional<WindowsLauncherDiscovery.InstalledApp> installedApp = windows.findInstalledApp(tokens);
+        if (type == LauncherType.SKLAUNCHER) {
+            // Si coexisten 3.x y 4.x, priorizar la nueva edición sin añadir
+            // otro botón al instalador.
+            shortcut = windows.findShortcut("sklauncher 4", "sklauncher4", "sklauncher next")
+                    .or(() -> shortcutFromGeneral(windows));
+            installedApp = windows.findSkLauncherV4App()
+                    .or(() -> installedAppFromGeneral(windows));
+        }
         Optional<WindowsLauncherDiscovery.AppxPackage> appx = type == LauncherType.OFFICIAL
                 ? windows.findAppxPackage("Microsoft.4297127D64EC6", "Microsoft.MinecraftLauncher")
                 : Optional.empty();
@@ -100,12 +108,22 @@ public final class LauncherDetector {
                     autoRegister = launcherRoot != null;
                 }
                 case SKLAUNCHER -> {
-                    // SKLauncher 3.2 usa el mismo launcher_profiles.json que el
-                    // launcher oficial y permite aislar cada instalación con
-                    // Game Directory. Registramos un perfil ASCENDERSMC en
-                    // %APPDATA%\.minecraft que apunta a nuestra carpeta aislada.
-                    launcherRoot = envPath("APPDATA", ".minecraft");
-                    instanceRoot = minecraftDir;
+                    boolean v4 = SkLauncherRegistrar.isVersion4(shortcut.orElse(null), installedApp.orElse(null), entry);
+                    if (v4) {
+                        launcherRoot = envPath("APPDATA", ".sklauncher");
+                        Path found = SkLauncherRegistrar.findImportedInstance(config.sklauncher4InstancesDir(), profile);
+                        instanceRoot = found != null ? found
+                                : config.sklauncher4InstancesDir().resolve(instanceName(profile));
+                        minecraftDir = found != null ? found
+                                : config.profileRootDir(profile, type).resolve("sklauncher4").resolve("minecraft");
+                        InstallerLogger.info("DETECT", "sklauncher.version=4.x | nativeRoot="
+                                + config.sklauncher4InstancesDir() + " | registeredInstance=" + found);
+                    } else {
+                        // 3.2.x mantiene el archivo launcher_profiles.json oficial.
+                        launcherRoot = envPath("APPDATA", ".minecraft");
+                        instanceRoot = minecraftDir;
+                        InstallerLogger.info("DETECT", "sklauncher.version=3.x | launcherProfiles=" + launcherRoot);
+                    }
                     autoRegister = launcherRoot != null;
                 }
                 case PRISM -> {
@@ -179,6 +197,14 @@ public final class LauncherDetector {
 
         return new InstallTarget(type, type.label(), installed, minecraftDir, launcherRoot, instanceRoot,
                 entry, autoRegister, note);
+    }
+
+    private Optional<WindowsLauncherDiscovery.Shortcut> shortcutFromGeneral(WindowsLauncherDiscovery windows) {
+        return windows.findShortcut("sklauncher", "sk launcher");
+    }
+
+    private Optional<WindowsLauncherDiscovery.InstalledApp> installedAppFromGeneral(WindowsLauncherDiscovery windows) {
+        return windows.findInstalledApp("sklauncher", "sk launcher");
     }
 
     private Path resolveTLauncherMinecraftRoot(Path installedLocation, Path entry) {

@@ -77,10 +77,7 @@ public final class UniversalInstallService {
                     OfficialLauncherRegistrar.register(profile, target);
                     yield LauncherRegistration.ready("Registrado automáticamente");
                 }
-                case SKLAUNCHER -> {
-                    OfficialLauncherRegistrar.register(profile, target);
-                    yield LauncherRegistration.ready("Perfil SKLauncher registrado");
-                }
+                case SKLAUNCHER -> SkLauncherRegistrar.register(config, profile, target);
                 case PRISM -> {
                     PrismRegistrar.register(profile, target);
                     yield LauncherRegistration.ready("Registrado automáticamente");
@@ -142,7 +139,9 @@ public final class UniversalInstallService {
         } else {
             extra = switch (t.launcherType()) {
                 case OFFICIAL -> "El perfil fue registrado automáticamente en Minecraft Launcher como ASCENDERSMC " + p.profile().displayName() + ".";
-                case SKLAUNCHER -> "El perfil fue registrado automáticamente en SKLauncher usando launcher_profiles.json y Game Directory aislado.";
+                case SKLAUNCHER -> SkLauncherRegistrar.isVersion4(t)
+                        ? "Instancia SKLauncher 4.x reconocida y actualizada en su propia carpeta."
+                        : "El perfil fue registrado en SKLauncher 3.x mediante launcher_profiles.json y Game Directory aislado.";
                 case PRISM -> "La instancia fue registrada automáticamente en Prism Launcher.";
                 case TLAUNCHER -> "La versión ASCENDERSMC fue registrada en TLauncher con --gameDir aislado, por lo que no usa .minecraft\\mods global.";
                 case CURSEFORGE -> "La instancia custom fue creada directamente en CurseForge con minecraftinstance.json nativo y metadata real de NeoForge. No se requiere importación manual.";

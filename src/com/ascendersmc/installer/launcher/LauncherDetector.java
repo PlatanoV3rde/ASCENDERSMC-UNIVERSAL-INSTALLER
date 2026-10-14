@@ -150,9 +150,22 @@ public final class LauncherDetector {
                     if (modrinthRoot != null) {
                         launcherRoot = modrinthRoot;
                         instanceRoot = modrinthRoot.resolve("profiles").resolve(instanceName(profile));
-                        minecraftDir = Files.isDirectory(instanceRoot)
-                                ? instanceRoot
-                                : config.launcherProfileDir(profile, type);
+                        Path imported = ModrinthRegistrar.findImportedInstance(modrinthRoot, profile);
+                        // Solo un perfil con marcador generado por la importación
+                        // oficial puede recibir actualizaciones directas. Si hay
+                        // carpeta huérfana antigua, usamos sus datos para formar
+                        // un .mrpack y NO declaramos la instancia registrada.
+                        if (imported != null) {
+                            instanceRoot = imported;
+                            minecraftDir = imported;
+                            InstallerLogger.debug("DETECT", "modrinth.nativeProfile.imported | " + imported);
+                        } else if (Files.isDirectory(instanceRoot)) {
+                            minecraftDir = instanceRoot;
+                            InstallerLogger.warn("DETECT", "modrinth.orphanFolder | importación nativa pendiente: " + instanceRoot);
+                        } else {
+                            minecraftDir = config.launcherProfileDir(profile, type);
+                            InstallerLogger.debug("DETECT", "modrinth.staging | " + minecraftDir);
+                        }
                         autoRegister = true;
                     }
                 }

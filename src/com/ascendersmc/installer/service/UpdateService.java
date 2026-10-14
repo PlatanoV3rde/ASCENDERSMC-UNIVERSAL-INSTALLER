@@ -28,6 +28,7 @@ import java.util.function.BooleanSupplier;
  */
 public final class UpdateService {
     public static final String APPLY_UPDATE_ARG = "--apply-update";
+    public static final String CANONICAL_JAR_NAME = "ASCENDERSMC-UNIVERSAL-INSTALLER.jar";
     private static final Duration API_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration DOWNLOAD_TIMEOUT = Duration.ofMinutes(5);
 
@@ -56,8 +57,12 @@ public final class UpdateService {
     }
 
     /**
-     * Modo helper: se ejecuta desde el JAR nuevo, espera a que termine el proceso
-     * anterior, reemplaza el JAR original y lo vuelve a iniciar.
+     * Modo helper: corre desde el JAR recién descargado (en el caché), después
+     * de salir el proceso anterior. Siempre sustituye el nombre canónico,
+     * aunque el usuario ejecutara "...-v0.8.5.jar" o "... (4).jar".
+     *
+     * Compatible con helpers lanzados desde 0.8.5, que solo transmiten
+     * la ruta original y el PID; desde 0.8.6 también se pasa el hash SHA-256.
      */
     public static boolean handleApplyMode(String[] args) {
         if (args == null || args.length == 0 || !APPLY_UPDATE_ARG.equals(args[0])) return false;
@@ -65,38 +70,139 @@ public final class UpdateService {
             System.err.println("Uso interno inválido de --apply-update");
             return true;
         }
-
+        Path originalJar = null;
         try {
             setState(UpdateState.APPLYING);
-            Path targetJar = Path.of(args[1]).toAbsolutePath().normalize();
+            originalJar = Path.of(args[1]).toAbsolutePath().normalize();
+            if (!originalJar.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
+                throw new IOException("El archivo de origen no es un JAR");
+            }
             long parentPid = Long.parseLong(args[2]);
             Path helperJar = currentJarPath().orElseThrow(() -> new IOException("No se pudo localizar el JAR helper"));
+            String expectedSha256 = args.length >= 4 ? args[3] : null;
 
             waitForProcessExit(parentPid, Duration.ofSeconds(90));
-            Files.createDirectories(targetJar.getParent());
-
-            Path replacement = targetJar.resolveSibling(targetJar.getFileName() + ".update");
-            Files.copy(helperJar, replacement, StandardCopyOption.REPLACE_EXISTING);
-            FileOps.moveReplace(replacement, targetJar);
-
-            String java = javaExecutable().toString();
-            new ProcessBuilder(java, "-jar", targetJar.toString())
-                    .directory(targetJar.getParent().toFile())
-                    .start();
+            applyDownloadedJar(helperJar, originalJar, expectedSha256, path -> {
+                new ProcessBuilder(javaExecutable().toString(), "-jar", path.toString())
+                        .directory(path.getParent().toFile())
+                        .start();
+            });
         } catch (Exception ex) {
-            // Si el reemplazo falla, intentamos reabrir el JAR anterior para no
-            // dejar al usuario sin Installer por una actualización fallida.
+            // No borrar ni renombrar el archivo anterior cuando falle una
+            // sustitución. Si sigue disponible, reabrirlo como recuperación.
             ex.printStackTrace(System.err);
             try {
-                Path targetJar = Path.of(args[1]).toAbsolutePath().normalize();
-                if (Files.isRegularFile(targetJar)) {
-                    new ProcessBuilder(javaExecutable().toString(), "-jar", targetJar.toString())
-                            .directory(targetJar.getParent().toFile())
+                if (originalJar != null && Files.isRegularFile(originalJar)) {
+                    new ProcessBuilder(javaExecutable().toString(), "-jar", originalJar.toString())
+                            .directory(originalJar.getParent().toFile())
                             .start();
                 }
             } catch (Exception ignored) { }
         }
         return true;
+    }
+
+    @FunctionalInterface
+    interface JarLauncher {
+        void launch(Path jar) throws IOException;
+    }
+
+    /**
+     * Reemplazo seguro y probado de forma independiente, sin proceso GUI.
+     *
+     * Solo se limpia el JAR antiguo si ya se inició el nuevo. Si falla
+     * el reemplazo o el arranque, se restaura cualquier versión canónica
+     * anterior y se conserva la ruta original para poder reiniciar.
+     */
+    static Path applyDownloadedJar(Path downloadedJar, Path originalJar, String expectedSha256,
+                                   JarLauncher launcher) throws IOException {
+        Objects.requireNonNull(downloadedJar, "downloadedJar");
+        Objects.requireNonNull(originalJar, "originalJar");
+        Objects.requireNonNull(launcher, "launcher");
+        Path oldPath = originalJar.toAbsolutePath().normalize();
+        Path target = oldPath.resolveSibling(CANONICAL_JAR_NAME);
+        Path source = downloadedJar.toAbsolutePath().normalize();
+
+        if (!Files.isRegularFile(source)) throw new IOException("No existe el JAR actualizado: " + source);
+        if (expectedSha256 != null && !expectedSha256.isBlank()) {
+            if (!expectedSha256.matches("(?i)[a-f0-9]{64}")) throw new IOException("SHA-256 de actualización inválido");
+            if (!Hashing.sha256(source).equalsIgnoreCase(expectedSha256)) {
+                throw new SecurityException("El JAR de actualización cambió después de la verificación SHA-256");
+            }
+        }
+
+        Files.createDirectories(target.getParent());
+        Path staging = Files.createTempFile(target.getParent(), ".ascendersmc-update-", ".tmp");
+        Path backup = null;
+        boolean replaced = false;
+        boolean preserveBackup = false;
+        try {
+            Files.copy(source, staging, StandardCopyOption.REPLACE_EXISTING);
+            if (Files.isRegularFile(target)) {
+                // Si el usuario ya tenía el nombre canónico, respaldar esa
+                // versión antes del reemplazo (incluido el caso in-place).
+                backup = Files.createTempFile(target.getParent(), ".ascendersmc-backup-", ".tmp");
+                Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING);
+            }
+            moveWithWindowsRetry(staging, target);
+            replaced = true;
+            launcher.launch(target);
+
+            if (!oldPath.equals(target)) {
+                try {
+                    Files.deleteIfExists(oldPath);
+                } catch (IOException cleanupFailure) {
+                    System.err.println("[UPDATE] Actualizado, pero no se pudo retirar JAR anterior: "
+                            + oldPath + " | " + cleanupFailure);
+                }
+            }
+            return target;
+        } catch (IOException | RuntimeException failure) {
+            if (replaced) {
+                try {
+                    if (backup != null) moveWithWindowsRetry(backup, target);
+                    else Files.deleteIfExists(target);
+                } catch (IOException rollbackFailure) {
+                    // No borrar el respaldo si Windows impidió restaurarlo.
+                    preserveBackup = true;
+                    failure.addSuppressed(rollbackFailure);
+                    System.err.println("[UPDATE] Respaldo conservado para recuperación manual: " + backup);
+                }
+            }
+            throw failure;
+        } finally {
+            try { Files.deleteIfExists(staging); }
+            catch (IOException cleanupFailure) {
+                System.err.println("[UPDATE] No se pudo borrar staging: " + cleanupFailure);
+            }
+            if (backup != null && !preserveBackup) {
+                try { Files.deleteIfExists(backup); }
+                catch (IOException cleanupFailure) {
+                    System.err.println("[UPDATE] No se pudo borrar respaldo temporal: " + cleanupFailure);
+                }
+            }
+        }
+    }
+
+    /** Reintentos cortos para antivirus e índices de Windows tras salir el JVM anterior. */
+    private static void moveWithWindowsRetry(Path source, Path target) throws IOException {
+        IOException last = null;
+        for (int attempt = 0; attempt < 10; attempt++) {
+            try {
+                FileOps.moveReplace(source, target);
+                return;
+            } catch (IOException ex) {
+                last = ex;
+                if (attempt == 9) break;
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Reemplazo de actualización interrumpido", interrupted);
+                }
+            }
+        }
+        throw last;
     }
 
     /**
@@ -215,10 +321,11 @@ public final class UpdateService {
             long pid = ProcessHandle.current().pid();
             ProcessBuilder helper = new ProcessBuilder(
                     javaExecutable().toString(), "-jar", candidate.toString(),
-                    APPLY_UPDATE_ARG, runningJar.toString(), Long.toString(pid));
+                    APPLY_UPDATE_ARG, runningJar.toString(), Long.toString(pid), expectedSha);
             helper.directory(runningJar.getParent().toFile());
             helper.start();
-            InstallerLogger.info("UPDATE", "Actualización validada. Reiniciando en " + latestVersion + "...");
+            InstallerLogger.info("UPDATE", "Actualización validada. Reiniciando en " + latestVersion
+                    + " con nombre fijo " + CANONICAL_JAR_NAME + "...");
             return true;
         } catch (Exception ex) {
             setState(UpdateState.IDLE);

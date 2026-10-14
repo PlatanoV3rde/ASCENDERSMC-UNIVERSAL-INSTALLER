@@ -90,10 +90,7 @@ public final class UniversalInstallService {
                     yield LauncherRegistration.ready("Versión TLauncher registrada");
                 }
                 case CURSEFORGE -> CurseForgeRegistrar.register(config, profile, target);
-                case MODRINTH -> {
-                    ModrinthRegistrar.register(config, profile, target);
-                    yield LauncherRegistration.ready("Importación entregada a Modrinth");
-                }
+                case MODRINTH -> ModrinthRegistrar.register(config, profile, target);
                 default -> LauncherRegistration.ready("Perfil aislado preparado");
             };
             InstallerLogger.debug("FLOW", "phase.register.end | importRequired=" + registration.importRequired()
@@ -149,7 +146,7 @@ public final class UniversalInstallService {
                 case PRISM -> "La instancia fue registrada automáticamente en Prism Launcher.";
                 case TLAUNCHER -> "La versión ASCENDERSMC fue registrada en TLauncher con --gameDir aislado, por lo que no usa .minecraft\\mods global.";
                 case CURSEFORGE -> "La instancia custom fue creada directamente en CurseForge con minecraftinstance.json nativo y metadata real de NeoForge. No se requiere importación manual.";
-                case MODRINTH -> "El perfil fue entregado a Modrinth App mediante el formato .mrpack soportado por Modrinth.";
+                case MODRINTH -> "Instancia Modrinth registrada mediante importación nativa .mrpack. Las futuras actualizaciones usan la carpeta realmente importada.";
                 default -> "Se preparó un perfil aislado para " + t.launcherType().label() + ".";
             };
         }

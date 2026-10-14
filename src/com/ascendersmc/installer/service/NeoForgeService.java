@@ -33,7 +33,8 @@ public final class NeoForgeService {
         InstallerLogger.debug("NEOFORGE", "ensure.start | launcher=" + target.launcherType().label()
                 + " | version=" + profile.neoForgeVersion() + " | gameDir=" + target.minecraftDir());
 
-        if (target.launcherType() == LauncherType.PRISM || target.launcherType() == LauncherType.MODRINTH) {
+        if (target.launcherType() == LauncherType.PRISM || target.launcherType() == LauncherType.MODRINTH
+                || (target.launcherType() == LauncherType.SKLAUNCHER && com.ascendersmc.installer.launcher.SkLauncherRegistrar.isVersion4(target))) {
             InstallerLogger.debug("NEOFORGE", "ensure.skip | " + target.launcherType().label()
                     + " gestionará NeoForge mediante su propio sistema de instancia");
             progress.accept(88, "NeoForge será gestionado por " + target.launcherType().label());
@@ -197,7 +198,7 @@ public final class NeoForgeService {
         InstallerLogger.debug("NEOFORGE", "sha.request | " + url);
         HttpClient c = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(20)).build();
         HttpRequest r = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(45))
-                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.8").GET().build();
+                .header("User-Agent", "ASCENDERSMC-UNIVERSAL-INSTALLER/0.8.9").GET().build();
         HttpResponse<String> x = c.send(r, HttpResponse.BodyHandlers.ofString());
         InstallerLogger.debug("NEOFORGE", "sha.response | status=" + x.statusCode());
         if (x.statusCode() < 200 || x.statusCode() >= 300) throw new IOException("HTTP " + x.statusCode() + " consultando SHA-256 NeoForge");

@@ -16,7 +16,8 @@ import java.util.*;
  * SK 3.x usa launcher_profiles.json (OfficialLauncherRegistrar).
  * SK 4.x tiene su propio almacén y un importador de modpacks. Crear carpetas
  * debajo de instances/ NO registra la instancia. No se altera su base de datos.
- * La importación vía archivo debe confirmarla el usuario en SKLauncher 4.
+ * Se intenta automatizar la importación mediante su interfaz nativa en Windows.
+ * Si no es comprobable, se informa honestamente que la importación sigue pendiente.
  */
 public final class SkLauncherRegistrar {
     public static final String IMPORT_MARKER = "ASCENDERSMC-SKLAUNCHER4-IMPORT.txt";
@@ -72,6 +73,13 @@ public final class SkLauncherRegistrar {
         ModrinthRegistrar.buildMrpack(profile, target.minecraftDir(), mrpack,
                 IMPORT_MARKER, markerContent(profile.profile()));
         InstallerLogger.info("SKLAUNCHER4", "Paquete .mrpack generado | " + mrpack);
+        // Registro por la propia interfaz de SKLauncher: no inventar esquemas de
+        // datos internos, ni asumir que solo crear un directorio lo registra.
+        // La verificacion ocurre despues de que el launcher haya importado el pack.
+        if (SkLauncher4AutoImporter.tryImport(config, profile.profile(), target, mrpack)) {
+            return LauncherRegistration.ready("Instancia SKLauncher 4.x importada y verificada automaticamente");
+        }
+        InstallerLogger.warn("SKLAUNCHER4", "La importacion automatica no se pudo confirmar; paquete disponible como alternativa");
 
         // No asumir asociación de .mrpack: Windows suele enviarlo a Modrinth
         // cuando ambos launchers están instalados. Abrir solo la carpeta.

@@ -57,8 +57,6 @@ public final class ModrinthRegistrationSmokeTest {
                 "ASCENDERSMC-MODRINTH:COBBLEWORLD\n", StandardCharsets.UTF_8);
         if (!imported.equals(ModrinthRegistrar.findImportedInstance(nativeRoot, InstallerProfile.COBBLEWORLD)))
             throw new AssertionError("No localizó el perfil importado con nombre modificado");
-        if (ModrinthRegistrar.findImportedInstance(nativeRoot, InstallerProfile.PIXELMON) != null)
-            throw new AssertionError("Se cruzaron los perfiles Cobbleworld/Pixelmon");
         // Una segunda generación con los mismos archivos no debe fallar.
         ModrinthRegistrar.buildMrpack(config, orphan, pack);
         if (!Files.isRegularFile(pack)) throw new AssertionError("No se pudo regenerar .mrpack");

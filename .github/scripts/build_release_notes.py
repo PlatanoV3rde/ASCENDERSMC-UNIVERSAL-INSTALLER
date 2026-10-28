@@ -30,12 +30,12 @@ def main() -> int:
     if not changes:
         changes = (
             "- Mejoras de estabilidad y mantenimiento del Installer.\n"
-            "- Compatibilidad conservada con los launchers y perfiles oficiales de ASCENDERSMC."
+            "- Compatibilidad conservada con los launchers y el perfil oficial de Cobbleworld."
         )
 
     body = f"""# ASCENDERSMC UNIVERSAL INSTALLER {version}
 
-Instalador oficial para preparar y mantener los perfiles **CobbleWorld** y **Pixelmon** de ASCENDERSMC de forma aislada, sin utilizar la carpeta global de mods del jugador.
+Instalador oficial para preparar y mantener el perfil **CobbleWorld** de ASCENDERSMC de forma aislada, sin utilizar la carpeta global de mods del jugador.
 
 ## Compatibilidad
 

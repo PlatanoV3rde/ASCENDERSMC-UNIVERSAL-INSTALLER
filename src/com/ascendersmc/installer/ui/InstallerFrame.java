@@ -75,7 +75,6 @@ public final class InstallerFrame extends JFrame {
     };
     private final JPanel launcherGrid = new JPanel(new GridLayout(0, 3, 12, 12));
     private final ProfileCard cobbleCard;
-    private final ProfileCard pixelCard;
 
     private Point dragOrigin;
     private int scanGeneration;
@@ -84,7 +83,6 @@ public final class InstallerFrame extends JFrame {
     private volatile boolean closeDialogOpen;
     private Image logo;
     private Image cobbleImage;
-    private Image pixelImage;
 
     public InstallerFrame(InstallerConfig config) {
         this.config = config;
@@ -102,7 +100,6 @@ public final class InstallerFrame extends JFrame {
         if (logo != null) setIconImage(logo);
 
         cobbleCard = new ProfileCard(InstallerProfile.COBBLEWORLD, "COBBLEWORLD", cobbleImage);
-        pixelCard = new ProfileCard(InstallerProfile.PIXELMON, "PIXELMON", pixelImage);
 
         setContentPane(new BackgroundPanel());
         setLayout(new BorderLayout());
@@ -240,8 +237,6 @@ public final class InstallerFrame extends JFrame {
         cards.setMinimumSize(new Dimension(420, 112));
         cards.setMaximumSize(new Dimension(420, 112));
         cards.add(cobbleCard);
-        cards.add(Box.createHorizontalStrut(12));
-        cards.add(pixelCard);
         cards.add(Box.createHorizontalGlue());
         panel.add(cards);
         return panel;
@@ -460,7 +455,6 @@ public final class InstallerFrame extends JFrame {
         InstallerLogger.debug("UI", "Perfil seleccionado=" + profile.displayName());
         this.selectedProfile = profile;
         cobbleCard.setSelectedState(profile == InstallerProfile.COBBLEWORLD);
-        pixelCard.setSelectedState(profile == InstallerProfile.PIXELMON);
         profileValue.setText(profile.displayName());
         var cfg = config.profile(profile);
         minecraftValue.setText(cfg.minecraftVersion());
@@ -561,7 +555,7 @@ public final class InstallerFrame extends JFrame {
                         "SKLauncher 4 sigue activo (" + activeProcesses.size() + " proceso(s)), "
                         + "aunque su ventana esté cerrada.\n\n"
                         + "ASCENDERSMC Installer puede cerrar esos procesos automáticamente "
-                        + "para registrar o actualizar COBBLEWORLD/PIXELMON.\n"
+                        + "para registrar o actualizar COBBLEWORLD.\n"
                         + "Guarda cualquier cambio pendiente: cerrar procesos puede descartar "
                         + "configuraciones no guardadas.\n\n"
                         + "¿Deseas cerrarlos y continuar con la instalación?",
@@ -715,7 +709,6 @@ public final class InstallerFrame extends JFrame {
         try {
             logo = loadImage("/assets/logo.png");
             cobbleImage = loadImage("/assets/profile-cobbleworld.png");
-            pixelImage = loadImage("/assets/profile-pixelmon.png");
         } catch (Exception ignored) {}
     }
 

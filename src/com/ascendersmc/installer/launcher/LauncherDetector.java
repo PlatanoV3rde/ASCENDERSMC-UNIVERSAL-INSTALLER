@@ -14,7 +14,7 @@ import java.util.*;
  * registra como aplicación instalada, AppX/MSIX o shortcut original.
  *
  * El inventario de Windows se comparte durante toda la sesión. Cambiar entre
- * COBBLEWORLD y PIXELMON no vuelve a consultar registro/AppX/shortcuts.
+ * COBBLEWORLD no vuelve a consultar registro/AppX/shortcuts.
  */
 public final class LauncherDetector {
     private final InstallerConfig config;

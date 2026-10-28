@@ -15,9 +15,7 @@ public class SkLauncher4NativeRegistryTest {
         Path root = Files.createTempDirectory("ascendersmc-sk4-");
         Path instances = root.resolve("instances");
         Path mc = instances.resolve("ascendersmc-cobbleworld");
-        Path px = instances.resolve("ascendersmc-pixelmon");
         Files.createDirectories(mc.resolve("mods"));
-        Files.createDirectories(px.resolve("mods"));
         Files.writeString(mc.resolve("mods/important.jar"), "preserve me");
         Files.createDirectories(instances.resolve("latest-release"));
 
@@ -91,25 +89,13 @@ public class SkLauncher4NativeRegistryTest {
         check(!SkLauncher4Registry.executableMatches(root.resolve("javaw.exe").toString(),
                     root.resolve("sklauncher.exe")), "Confundió Minecraft con SKLauncher");
 
-        SkLauncher4Registry.register(instances, InstallerProfile.PIXELMON,
-                "1.21.1","21.1.248",px);
-        parsed=SimpleJson.parse(Files.readString(root.resolve("instances.json")));
-        list=(List<Map<String,Object>>)((Map<String,Object>)parsed).get("instances");
-        check(list.size()==3,"Pixelmon no tiene instancia independiente");
-        check(instances.resolve("ascendersmc-pixelmon").equals(
-                SkLauncher4Registry.findRegisteredInstance(instances,InstallerProfile.PIXELMON)),
-                "Pixelmon no se encuentra");
-        check(String.valueOf(list.get(2).get("icon"))
-                .startsWith("starship-icon://icons/ascendersmc-pixelmon/"),
-                "Pixelmon no tiene su propio icono ASCENDERSMC");
-
         Path malicious = root.resolve("outside");
         Files.createDirectories(malicious);
         boolean blocked=false;
         try { SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
                 "1.21.1","21.1.248",malicious); } catch (SecurityException expected) { blocked=true; }
         check(blocked,"No rechazó carpeta fuera de raíz");
-        check(list.size()==3, "Debe conservar instancias existentes");
+        check(list.size()==2, "Debe conservar instancias existentes");
         // Invalid registry must be rejected rather than overwritten.
         String good = Files.readString(root.resolve("instances.json"));
         Files.writeString(root.resolve("instances.json"), "{BROKEN");
@@ -119,6 +105,6 @@ public class SkLauncher4NativeRegistryTest {
         check(refused && Files.readString(root.resolve("instances.json")).equals("{BROKEN"),
                 "No debe sobrescribir un registro dañado o de formato desconocido");
         Files.writeString(root.resolve("instances.json"), good);
-        System.out.println("PASS: registro nativo, iconos COBBLEWORLD/PIXELMON, iconos personalizados, procesos, respaldo, aislamiento y actualizaciones");
+        System.out.println("PASS: registro nativo, iconos COBBLEWORLD, iconos personalizados, procesos, respaldo, aislamiento y actualizaciones");
     }
 }

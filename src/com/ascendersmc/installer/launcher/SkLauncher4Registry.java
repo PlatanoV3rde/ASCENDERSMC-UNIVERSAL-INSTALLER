@@ -100,7 +100,7 @@ public final class SkLauncher4Registry {
      *  real custom icons. A real instance uses starship-icon://icons/<id>/<hash>.png.
      */
     static String ensureInstanceIcon(Path instancesDir, InstallerProfile profile) throws Exception {
-        String name = profile == InstallerProfile.COBBLEWORLD ? "profile-cobbleworld.png" : "profile-pixelmon.png";
+        String name = "profile-cobbleworld.png";
         byte[] png;
         try (InputStream input = SkLauncher4Registry.class.getResourceAsStream("/assets/" + name)) {
             if (input == null) throw new IOException("No está incluido el logo ASCENDERSMC: " + name);

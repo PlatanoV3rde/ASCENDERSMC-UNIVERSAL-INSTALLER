@@ -74,8 +74,6 @@ public final class SkLauncher4CompatibilityTest {
                 "1.21.1", "21.1.248", imported);
         check(imported.equals(SkLauncherRegistrar.findImportedInstance(instances, InstallerProfile.COBBLEWORLD)),
                 "No encontró la instancia registrada en instances.json");
-        check(SkLauncherRegistrar.findImportedInstance(instances, InstallerProfile.PIXELMON) == null,
-                "Se mezclaron las instancias de Pixelmon y Cobbleworld");
 
         InstallTarget v3 = new InstallTarget(LauncherType.SKLAUNCHER, "SKLauncher", true,
                 sandbox.resolve("old"), sandbox.resolve(".minecraft"), sandbox.resolve("old"), null, true, "");

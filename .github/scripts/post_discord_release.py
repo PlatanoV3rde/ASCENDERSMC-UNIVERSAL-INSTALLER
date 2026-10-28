@@ -59,7 +59,7 @@ def main() -> int:
             {
                 "title": f"ASCENDERSMC UNIVERSAL INSTALLER • v{version}",
                 "description": (
-                    "La instalación oficial de **ASCENDERSMC** en un solo lugar. Selecciona **CobbleWorld** o **Pixelmon**, "
+                    "La instalación oficial de **ASCENDERSMC** en un solo lugar. Instala **CobbleWorld**, "
                     "elige tu launcher y el Installer prepara un perfil independiente con la versión correcta de Minecraft y NeoForge, "
                     "descarga el modpack y coloca el resource pack correspondiente.\n\n"
                     "Cuando ASCENDERSMC publique cambios, vuelve a ejecutar el Installer: el perfil se sincroniza con la distribución oficial, "
@@ -69,8 +69,8 @@ def main() -> int:
                 "color": 0x6D5DFB,
                 "fields": [
                     {
-                        "name": "🎮 PERFILES ASCENDERSMC",
-                        "value": "**CobbleWorld**  •  **Pixelmon**",
+                        "name": "🎮 PERFIL ASCENDERSMC",
+                        "value": "**CobbleWorld**",
                         "inline": False,
                     },
                     {

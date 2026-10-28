@@ -1,8 +1,7 @@
 package com.ascendersmc.installer.model;
 
 public enum InstallerProfile {
-    COBBLEWORLD("cobbleworld", "COBBLEWORLD"),
-    PIXELMON("pixelmon", "PIXELMON");
+    COBBLEWORLD("cobbleworld", "COBBLEWORLD");
 
     private final String id;
     private final String displayName;

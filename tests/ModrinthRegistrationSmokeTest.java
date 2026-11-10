@@ -27,7 +27,7 @@ public final class ModrinthRegistrationSmokeTest {
             throw new AssertionError("Una carpeta huérfana NO es una instancia importada");
 
         InstallerConfig.ProfileConfig config = new InstallerConfig.ProfileConfig(
-                InstallerProfile.COBBLEWORLD, "", "", "", "1.21.1", "21.1.248", "", "");
+                InstallerProfile.COBBLEWORLD, "", "", "", "1.21.1", "21.1.259", "", "");
         Path pack = sandbox.resolve("cobbleworld.mrpack");
         ModrinthRegistrar.buildMrpack(config, orphan, pack);
         if (Files.exists(orphan.resolve(ModrinthRegistrar.IMPORT_MARKER)))
@@ -48,7 +48,7 @@ public final class ModrinthRegistrationSmokeTest {
                 if (!seen.add(entry)) throw new AssertionError("Entrada duplicada dentro del mrpack: " + entry);
             }
             String idx = new String(zip.getInputStream(zip.getEntry("modrinth.index.json")).readAllBytes(), StandardCharsets.UTF_8);
-            if (!idx.contains("\"neoforge\": \"21.1.248\"")) throw new AssertionError("NeoForge incorrecto: " + idx);
+            if (!idx.contains("\"neoforge\": \"21.1.259\"")) throw new AssertionError("NeoForge incorrecto: " + idx);
         }
 
         Path imported = nativeRoot.resolve("profiles/ASCENDERSMC COBBLEWORLD (1)");

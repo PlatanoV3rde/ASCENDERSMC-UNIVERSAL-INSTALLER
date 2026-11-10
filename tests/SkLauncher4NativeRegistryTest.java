@@ -38,7 +38,7 @@ public class SkLauncher4NativeRegistryTest {
         check(SkLauncher4Registry.findRegisteredInstance(instances, InstallerProfile.COBBLEWORLD) == null,
                 "Una carpeta no implica registro");
         SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
-                "1.21.1","21.1.248", mc);
+                "1.21.1","21.1.259", mc);
 
         Object parsed = SimpleJson.parse(Files.readString(root.resolve("instances.json")));
         var list = (List<Map<String,Object>>) ((Map<String,Object>)parsed).get("instances");
@@ -49,8 +49,8 @@ public class SkLauncher4NativeRegistryTest {
         check("ascendersmc-cobbleworld".equals(cw.get("id")), "ID incorrecto");
         check("neoforge".equals(cw.get("gameType")), "Loader incorrecto");
         check("1.21.1".equals(cw.get("minecraftVersion")), "Minecraft incorrecto");
-        check("21.1.248".equals(cw.get("loaderVersion")), "NeoForge incorrecto");
-        check("1.21.1-neoforge-21.1.248".equals(cw.get("versionId")), "versionId incorrecto");
+        check("21.1.259".equals(cw.get("loaderVersion")), "NeoForge incorrecto");
+        check("1.21.1-neoforge-21.1.259".equals(cw.get("versionId")), "versionId incorrecto");
         check(Boolean.TRUE.equals(cw.get("installComplete")), "No marcado como instalado");
         String iconUri = (String) cw.get("icon");
         check(iconUri.startsWith("starship-icon://icons/ascendersmc-cobbleworld/")
@@ -68,7 +68,7 @@ public class SkLauncher4NativeRegistryTest {
                 "No reconoce registro creado");
 
         SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
-                "1.21.1","21.1.248", mc);
+                "1.21.1","21.1.259", mc);
         parsed=SimpleJson.parse(Files.readString(root.resolve("instances.json")));
         list=(List<Map<String,Object>>)((Map<String,Object>)parsed).get("instances");
         check(list.size()==2,"Actualización duplicó instancia");
@@ -77,7 +77,7 @@ public class SkLauncher4NativeRegistryTest {
         list.get(1).put("icon", "starship-icon://icons/user-choice/custom.png");
         Files.writeString(root.resolve("instances.json"), SimpleJson.stringify(Map.of("instances", list)));
         SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
-                "1.21.1", "21.1.248", mc);
+                "1.21.1", "21.1.259", mc);
         parsed=SimpleJson.parse(Files.readString(root.resolve("instances.json")));
         list=(List<Map<String,Object>>)((Map<String,Object>)parsed).get("instances");
         check("starship-icon://icons/user-choice/custom.png".equals(list.get(1).get("icon")),
@@ -93,7 +93,7 @@ public class SkLauncher4NativeRegistryTest {
         Files.createDirectories(malicious);
         boolean blocked=false;
         try { SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
-                "1.21.1","21.1.248",malicious); } catch (SecurityException expected) { blocked=true; }
+                "1.21.1","21.1.259",malicious); } catch (SecurityException expected) { blocked=true; }
         check(blocked,"No rechazó carpeta fuera de raíz");
         check(list.size()==2, "Debe conservar instancias existentes");
         // Invalid registry must be rejected rather than overwritten.
@@ -101,7 +101,7 @@ public class SkLauncher4NativeRegistryTest {
         Files.writeString(root.resolve("instances.json"), "{BROKEN");
         boolean refused = false;
         try { SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
-                "1.21.1","21.1.248",mc); } catch (Exception expected) { refused = true; }
+                "1.21.1","21.1.259",mc); } catch (Exception expected) { refused = true; }
         check(refused && Files.readString(root.resolve("instances.json")).equals("{BROKEN"),
                 "No debe sobrescribir un registro dañado o de formato desconocido");
         Files.writeString(root.resolve("instances.json"), good);

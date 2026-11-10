@@ -196,7 +196,7 @@ public final class CurseForgeRegistrar {
         // CurseForge no consume install_profile.json exactamente como viene en
         // el JAR de NeoForge. Su NeoForgeInstallerProvider espera la estructura
         // de data/processors que devuelve su endpoint de modloaders. Los logs de
-        // un perfil 21.1.248 creado por CurseForge confirman este flujo de seis
+        // un perfil 21.1.259 creado por CurseForge confirman este flujo de seis
         // procesadores (MCP_DATA, DOWNLOAD_MOJMAPS, MERGE_MAPPING, jarsplitter,
         // ART y binarypatcher). Lo reproducimos dinámicamente aquí.
         String neoFormVersion = findNeoFormVersion(libs);

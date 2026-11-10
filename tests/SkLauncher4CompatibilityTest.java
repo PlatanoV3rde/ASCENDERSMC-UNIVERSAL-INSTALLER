@@ -26,7 +26,7 @@ public final class SkLauncher4CompatibilityTest {
         check(SkLauncherRegistrar.isVersion4(shortcut4, sk3, null), "No prioriza 4.x cuando coexisten");
 
         InstallerConfig.ProfileConfig config = new InstallerConfig.ProfileConfig(
-                InstallerProfile.COBBLEWORLD, "", "", "", "1.21.1", "21.1.248", "", "");
+                InstallerProfile.COBBLEWORLD, "", "", "", "1.21.1", "21.1.259", "", "");
         Path staging = sandbox.resolve("staging");
         Files.createDirectories(staging.resolve("mods"));
         Files.createDirectories(staging.resolve("resourcepacks"));
@@ -60,7 +60,7 @@ public final class SkLauncher4CompatibilityTest {
             String idx = new String(zip.getInputStream(zip.getEntry("modrinth.index.json")).readAllBytes(),
                     StandardCharsets.UTF_8);
             check(idx.contains("\"minecraft\": \"1.21.1\""), "Minecraft no fijado");
-            check(idx.contains("\"neoforge\": \"21.1.248\""), "NeoForge no fijado");
+            check(idx.contains("\"neoforge\": \"21.1.259\""), "NeoForge no fijado");
         }
         check(!Files.exists(staging.resolve(SkLauncherRegistrar.IMPORT_MARKER)),
                 "Nunca escribir el marcador en staging");
@@ -71,7 +71,7 @@ public final class SkLauncher4CompatibilityTest {
         check(SkLauncherRegistrar.findImportedInstance(instances, InstallerProfile.COBBLEWORLD) == null,
                 "Un marcador huérfano no es registro nativo");
         SkLauncher4Registry.register(instances, InstallerProfile.COBBLEWORLD,
-                "1.21.1", "21.1.248", imported);
+                "1.21.1", "21.1.259", imported);
         check(imported.equals(SkLauncherRegistrar.findImportedInstance(instances, InstallerProfile.COBBLEWORLD)),
                 "No encontró la instancia registrada en instances.json");
 

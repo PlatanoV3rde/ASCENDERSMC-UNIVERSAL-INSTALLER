@@ -99,10 +99,16 @@ public final class InstallerConfig {
                 properties.getProperty(key + "modpack.asset.name", "").trim(),
                 req(key + "modpack.asset.prefix"),
                 properties.getProperty(key + "minecraft.version", "1.21.1").trim(),
-                properties.getProperty(key + "neoforge.version", "21.1.248").trim(),
+                upgradeLegacyNeoForgeVersion(properties.getProperty(key + "neoforge.version", "21.1.259")),
                 req(key + "resourcepack.release.api"),
                 req(key + "resourcepack.asset.name")
         );
+    }
+
+    /** Mantiene las instalaciones existentes actualizadas si conservan la configuración 21.1.248. */
+    private static String upgradeLegacyNeoForgeVersion(String configured) {
+        String version = configured == null ? "" : configured.trim();
+        return "21.1.248".equals(version) ? "21.1.259" : version;
     }
 
     private String req(String key) {
